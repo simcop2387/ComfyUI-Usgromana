@@ -3,7 +3,6 @@ import heapq
 import copy
 import contextvars
 from aiohttp import web
-from typing import Optional
 
 import folder_paths
 from server import PromptServer
@@ -27,233 +26,231 @@ class AccessControl:
         self.__prompt_queue = self.server.prompt_queue
         self.__prompt_queue_put = self.__prompt_queue.put
 
-    @property
-    def folder_paths(self) -> tuple:
-        return (
-            self.__get_output_directory(),
-            self.__get_temp_directory(),
-            self.__get_input_directory(),
-        )
+    # ---------------------------------------------------------
+    # USER CONTEXT
+    # ---------------------------------------------------------
 
-    def set_current_user_id(self, user_id: str, set_fallback: bool = False) -> None:
-        """Set the current user directory from ID."""
+    def set_current_user_id(self, user_id: str, set_fallback=False):
         self._current_user.set(user_id)
-
         if set_fallback:
             self.__current_user_id = user_id
 
-    def get_current_user_id(self) -> str:
-        """Retrieve the current user directory from ID."""
-        if self._current_user.get():
-            return self._current_user.get()
+    def get_current_user_id(self):
+        return self._current_user.get() or self.__current_user_id
 
-        return self.__current_user_id
+    # ---------------------------------------------------------
+    # USER FOLDERS
+    # ---------------------------------------------------------
 
-    def get_user_output_directory(self) -> str:
-        """Get the user-specific output directory."""
-        return os.path.join(
-            self.__get_output_directory(),
-            self.get_current_user_id() or "public",
-        )
+    def get_user_output_directory(self):
+        return os.path.join(self.__get_output_directory(), self.get_current_user_id() or "public")
 
-    def get_user_temp_directory(self) -> str:
-        """Get the user-specific temp directory."""
-        return os.path.join(
-            self.__get_temp_directory(),
-            self.get_current_user_id() or "public",
-        )
+    def get_user_temp_directory(self):
+        return os.path.join(self.__get_temp_directory(), self.get_current_user_id() or "public")
 
-    def get_user_input_directory(self) -> str:
-        """Get the user-specific input directory."""
-        input_directory = os.path.join(
-            self.__get_input_directory(),
-            self.get_current_user_id() or "public",
-        )
+    def get_user_input_directory(self):
+        directory = os.path.join(self.__get_input_directory(), self.get_current_user_id() or "public")
+        os.makedirs(directory, exist_ok=True)
+        return directory
 
-        os.makedirs(input_directory, exist_ok=True)
-
-        return input_directory
-
-    def add_user_specific_folder_paths(self, json_data) -> None:
-        """Add user-specific folder paths to the prompt JSON data."""
+    def add_user_specific_folder_paths(self, json_data):
         user_id = self.get_current_user_id() or "public"
 
         if isinstance(json_data, dict):
-            for key, value in json_data.items():
-                if key == "filename_prefix":
-                    json_data[key] = f"{user_id}/{value}"
+            for k, v in json_data.items():
+                if k == "filename_prefix":
+                    json_data[k] = f"{user_id}/{v}"
                 else:
-                    self.add_user_specific_folder_paths(value)
+                    self.add_user_specific_folder_paths(v)
+
         elif isinstance(json_data, list):
             for item in json_data:
                 self.add_user_specific_folder_paths(item)
 
         return json_data
 
-    def patch_folder_paths(self) -> None:
-        """Patch the folder_paths with user-specific methods."""
-        # folder_paths.get_output_directory = self.get_user_output_directory
+    def patch_folder_paths(self):
         folder_paths.get_temp_directory = self.get_user_temp_directory
         folder_paths.get_input_directory = self.get_user_input_directory
 
         self.server.add_on_prompt_handler(self.add_user_specific_folder_paths)
 
-    def create_folder_access_control_middleware(
-        self, folder_paths: tuple = ()
-    ) -> web.middleware:
-        """Create middleware for folder access control."""
+    # ---------------------------------------------------------
+    # FOLDER ACCESS CONTROL
+    # ---------------------------------------------------------
 
-        folder_paths = folder_paths or self.folder_paths
+    def create_folder_access_control_middleware(self, folder_paths=()):
+        folder_paths = folder_paths or (
+            self.__get_output_directory(),
+            self.__get_temp_directory(),
+            self.__get_input_directory(),
+        )
 
         @web.middleware
-        async def folder_access_control_middleware(
-            request: web.Request, handler
-        ) -> web.Response:
-            """Middleware to handle folder access control."""
+        async def folder_access_control_middleware(request: web.Request, handler):
             if not request.path.startswith(folder_paths):
                 return await handler(request)
 
             user_id = request.get("user_id")
-
             user_id, user = self.users_db.get_user(user_id)
 
             try:
-                path_parts = request.path.strip("/").split("/")
-                folder_user_id = path_parts[1]
+                parts = request.path.strip("/").split("/")
+                folder_user = parts[1]
             except:
-                return web.HTTPNotFound(reason="Folder not found.")
+                return web.HTTPNotFound()
 
-            if folder_user_id == "public":
+            if folder_user == "public":
                 return await handler(request)
 
-            if (
-                not user_id
-                or not user
-                or len(path_parts) < 2
-                or (user_id != folder_user_id and not user.get("admin"))
-            ):
-                return web.HTTPForbidden(
-                    reason="You do not have access to this folder."
-                )
+            if not user_id or not user or (folder_user != user_id and not user.get("admin")):
+                return web.HTTPForbidden(reason="Access denied.")
 
             return await handler(request)
 
         return folder_access_control_middleware
 
+    # ---------------------------------------------------------
+    # QUEUE PATCHING (CRITICAL SECTION)
+    # ---------------------------------------------------------
+
     def user_queue_put(self, item):
-        """Put an item in the user-specific queue."""
-        item = {"prompt": item, "user_id": self.get_current_user_id()}
-        self.__prompt_queue_put(item)
+        """
+        Preserve ComfyUI queue tuple structure.
+        Attach user_id safely without mutating expected format.
+        """
+        if isinstance(item, tuple):
+            new_item = (*item, {"user_id": self.get_current_user_id()})
+        else:
+            new_item = (item, {"user_id": self.get_current_user_id()})
+
+        self.__prompt_queue_put(new_item)
 
     def user_queue_get(self, timeout=None):
-        """Get an item from the user-specific queue."""
-        user_queue = self.__prompt_queue.queue
         with self.__prompt_queue.not_empty:
-            while len(user_queue) == 0:
+            while not self.__prompt_queue.queue:
                 self.__prompt_queue.not_empty.wait(timeout=timeout)
-                if timeout is not None and len(user_queue) == 0:
+                if timeout and not self.__prompt_queue.queue:
                     return None
-            item = heapq.heappop(user_queue)
-            i = self.__prompt_queue.task_counter
-            self.__prompt_queue.currently_running[i] = copy.deepcopy(item)
-            self.__prompt_queue.task_counter += 1
-            self.server.queue_updated()
-            return (item["prompt"], i)
 
-    def user_queue_task_done(
-        self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"]
-    ):
-        """Mark a user-specific queue task as done."""
+            entry = heapq.heappop(self.__prompt_queue.queue)
+
+            task_id = self.__prompt_queue.task_counter
+            self.__prompt_queue.currently_running[task_id] = entry
+            self.__prompt_queue.task_counter += 1
+
+            self.server.queue_updated()
+            return (entry, task_id)
+
+    def user_queue_task_done(self, item_id, history_result, **kwargs):
         with self.__prompt_queue.mutex:
-            prompt = self.__prompt_queue.currently_running.pop(item_id)
-            if len(self.__prompt_queue.history) > MAXIMUM_HISTORY_SIZE:
+            item = self.__prompt_queue.currently_running.pop(item_id)
+
+            while len(self.__prompt_queue.history) > MAXIMUM_HISTORY_SIZE:
                 self.__prompt_queue.history.pop(next(iter(self.__prompt_queue.history)))
 
-            status_dict: Optional[dict] = None
-            if status is not None:
-                status_dict = copy.deepcopy(status._asdict())
+            prompt_tuple = item[:-1] if isinstance(item[-1], dict) else item
+            meta = item[-1] if isinstance(item[-1], dict) else {}
 
-            self.__prompt_queue.history[prompt["prompt"][1]] = {
-                "prompt": prompt["prompt"],
+            self.__prompt_queue.history[prompt_tuple[1]] = {
+                "prompt": prompt_tuple,
                 "outputs": {},
-                "status": status_dict,
-                "user_id": prompt["user_id"],
+                "status": {
+                    "completed": kwargs.get("completed"),
+                    "messages": kwargs.get("messages"),
+                },
+                "user_id": meta.get("user_id"),
             }
-            self.__prompt_queue.history[prompt["prompt"][1]].update(history_result)
+
+            if history_result:
+                self.__prompt_queue.history[prompt_tuple[1]].update(history_result)
+
             self.server.queue_updated()
 
     def user_queue_get_current_queue(self):
-        """Get the current user-specific queue."""
+        """
+        Provide queue format exactly as ComfyUI expects:
+        - list of tuples
+        - no dict slicing
+        - strip Sentinel metadata before returning
+        """
+
+        def unwrap(entry):
+            if isinstance(entry, tuple) and isinstance(entry[-1], dict):
+                return entry[:-1]
+            return entry
+
+        current_user = self.get_current_user_id()
+
         with self.__prompt_queue.mutex:
-            out = []
-            for x in self.__prompt_queue.currently_running.values():
-                out += [x]
-            return (out, copy.deepcopy(self.__prompt_queue.queue))
+            running = []
+            pending = []
+
+            for item in self.__prompt_queue.currently_running.values():
+                meta = item[-1] if isinstance(item[-1], dict) else None
+                if not meta or meta.get("user_id") != current_user:
+                    continue
+                running.append(unwrap(item))
+
+            for item in self.__prompt_queue.queue:
+                meta = item[-1] if isinstance(item[-1], dict) else None
+                if not meta or meta.get("user_id") != current_user:
+                    continue
+                pending.append(unwrap(item))
+
+            return (running, copy.deepcopy(pending))
 
     def user_queue_wipe_queue(self):
-        """Wipe the user-specific queue."""
         with self.__prompt_queue.mutex:
+            current_user = self.get_current_user_id()
             self.__prompt_queue.queue = [
-                item
-                for item in self.__prompt_queue.queue
-                if item["user_id"] != self.get_current_user_id()
+                i for i in self.__prompt_queue.queue
+                if not (isinstance(i[-1], dict) and i[-1].get("user_id") == current_user)
             ]
             self.server.queue_updated()
 
-    def user_queue_delete_queue_item(self, function):
-        """Delete an item from the user-specific queue."""
+    def user_queue_delete_queue_item(self, func):
         with self.__prompt_queue.mutex:
-            for x in range(len(self.__prompt_queue.queue)):
-                if (
-                    function(self.__prompt_queue.queue[x])
-                    and self.__prompt_queue.queue[x]["user_id"]
-                    == self.get_current_user_id()
-                ):
-                    if len(self.__prompt_queue.queue) == 1:
-                        self.__prompt_queue.wipe_queue()
-                    else:
-                        self.__prompt_queue.pop(x)
-                        heapq.heapify(self.__prompt_queue.queue)
+            for i, item in enumerate(self.__prompt_queue.queue):
+                meta = item[-1] if isinstance(item[-1], dict) else None
+                if meta and meta.get("user_id") == self.get_current_user_id() and func(unwrap(item)):
+                    self.__prompt_queue.queue.pop(i)
+                    heapq.heapify(self.__prompt_queue.queue)
                     self.server.queue_updated()
                     return True
         return False
 
     def user_queue_get_history(self, prompt_id=None, max_items=None, offset=-1):
-        """Get the user-specific queue history."""
         with self.__prompt_queue.mutex:
-            user_history = {
-                k: v
-                for k, v in self.__prompt_queue.history.items()
-                if v["user_id"] == self.get_current_user_id()
-            }
-            if prompt_id is None:
-                out = {}
-                i = 0
-                if offset < 0 and max_items is not None:
-                    offset = len(self.__prompt_queue.history) - max_items
-                for k in user_history:
-                    if i >= offset:
-                        out[k] = user_history[k]
-                        if max_items is not None and len(out) >= max_items:
-                            break
-                    i += 1
-                return out
-            elif prompt_id in user_history:
-                return {prompt_id: copy.deepcopy(user_history[prompt_id])}
-            else:
-                return {}
+            user = self.get_current_user_id()
+
+            filtered = {k: v for k, v in self.__prompt_queue.history.items() if v.get("user_id") == user}
+
+            if prompt_id:
+                return {prompt_id: filtered.get(prompt_id)} if prompt_id in filtered else {}
+
+            keys = list(filtered.keys())
+            if offset < 0:
+                offset = max(0, len(keys) - max_items) if max_items else 0
+
+            result = {}
+            for k in keys[offset:]:
+                result[k] = filtered[k]
+                if max_items and len(result) >= max_items:
+                    break
+
+            return result
 
     def user_queue_wipe_history(self):
-        """Wipe the user-specific queue history."""
         with self.__prompt_queue.mutex:
-            self.__prompt_queue.history = {
-                k: v
-                for k, v in self.__prompt_queue.history.items()
-                if v["user_id"] != self.get_current_user_id()
-            }
+            u = self.get_current_user_id()
+            self.__prompt_queue.history = {k: v for k, v in self.__prompt_queue.history.items() if v.get("user_id") != u}
+
+    # ---------------------------------------------------------
+    # APPLY PATCHES
+    # ---------------------------------------------------------
 
     def patch_prompt_queue(self):
-        """Patch the prompt queue with user-specific methods."""
         self.__prompt_queue.put = self.user_queue_put
         self.__prompt_queue.get = self.user_queue_get
         self.__prompt_queue.task_done = self.user_queue_task_done
@@ -263,23 +260,21 @@ class AccessControl:
         self.__prompt_queue.get_history = self.user_queue_get_history
         self.__prompt_queue.wipe_history = self.user_queue_wipe_history
 
-    def create_manager_access_control_middleware(
-        self, manager_directory: str = "/extensions/comfyui-manager", manager_routes: tuple = ()
-    ) -> web.middleware:
-        """Create middleware for manager access control."""
+    # ---------------------------------------------------------
+    # MANAGER ACCESS CONTROL
+    # ---------------------------------------------------------
 
+    def create_manager_access_control_middleware(self, manager_directory="/extensions/comfyui-manager", manager_routes=()):
         @web.middleware
-        async def manager_access_control_middleware(
-            request: web.Request, handler
-        ) -> web.Response:
-            """Middleware to handle manager access control."""
+        async def middleware(request: web.Request, handler):
             user_id = request.get("user_id")
-            
-            if self.users_db.get_admin_user()[0] == user_id or (not request.path.startswith(manager_routes) and not request.path.lower().startswith(manager_directory)):
+
+            if self.users_db.get_admin_user()[0] == user_id:
                 return await handler(request)
 
-            return web.HTTPForbidden(
-                reason="You do not have access to comfyui manager."
-            )
+            if not request.path.lower().startswith(manager_directory):
+                return await handler(request)
 
-        return manager_access_control_middleware
+            return web.HTTPForbidden(reason="Access denied to ComfyUI Manager")
+
+        return middleware
