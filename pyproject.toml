@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-usgromana"
-description = "Advanced Security. Implements login, multi-user registration, user groups, ui mangement, group workflow enable/disable save, IP filtering, and user-specific input/output directories."
+description = "The next-generation security, governance, permissions, and multi‑user control system for ComfyUI."
 version = "0.11.3"
 license = {file = "LICENSE"}
 dependencies = ["aiohttp", "PyJWT", "bcrypt", "bleach"]
@@ -13,4 +13,5 @@ Repository = "https://github.com/DayMan84/ComfyUI-Usgromana"
 PublisherId = "DayMan84"
 DisplayName = "ComfyUI-Usgromana"
 
-Icon = "https://raw.githubusercontent.com/LucipherDev/ComfyUI-Sentinel/refs/heads/main/icon.png"
+Icon = "https://raw.githubusercontent.com/DayMan84/ComfyUI-Usgromana/refs/heads/main/icon.png"
+
