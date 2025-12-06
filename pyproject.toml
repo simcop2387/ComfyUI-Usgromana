@@ -1,15 +1,16 @@
 [project]
-name = "comfyui-sentinel"
-description = "ComfyUI Extension for Advanced Security. Implements login, multi-user registration, IP filtering, and user-specific input/output directories."
-version = "3.0.0"
+name = "comfyui-usgromana"
+description = "Advanced Security. Implements login, multi-user registration, user groups, ui mangement, group workflow enable/disable save, IP filtering, and user-specific input/output directories."
+version = "0.11.3"
 license = {file = "LICENSE"}
 dependencies = ["aiohttp", "PyJWT", "bcrypt", "bleach"]
 
 [project.urls]
-Repository = "https://github.com/LucipherDev/ComfyUI-Sentinel"
+Repository = "https://github.com/DayMan84/ComfyUI-Usgromana"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = "lucipherdev"
-DisplayName = "ComfyUI-Sentinel"
+PublisherId = "DayMan84"
+DisplayName = "ComfyUI-Usgromana"
+
 Icon = "https://raw.githubusercontent.com/LucipherDev/ComfyUI-Sentinel/refs/heads/main/icon.png"
