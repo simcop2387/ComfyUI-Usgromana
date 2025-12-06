@@ -30,7 +30,7 @@
 
 
 <p align="center">
-  <img src="/github/UsgromanaLogin.png" width="516" />
+  <img src="/readme/UsgromanaLogin.png" width="516" />
 </p>
 
 ## Overview
