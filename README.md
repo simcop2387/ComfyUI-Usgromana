@@ -53,7 +53,7 @@ Four roles: **Admin, Power, User, Guest**
 Each with configurable permissions stored in `usgromana_groups.json`.
 
 <p align="center">
-  <img src="./readme/UsgromanaLogin.png" width="400" />
+  <img src="./readme/UsgromanaLogin.png" />
 </p>
 
 ### 🚫 **Save & Delete Workflow Blocking**
@@ -64,7 +64,7 @@ Non‑privileged roles cannot:
 - Delete workflow files  
 
 <p align="center">
-  <img src="./readme/AdminGroups.png" width="400" />
+  <img src="./readme/AdminGroups.png" />
 </p>
 
 All blocked actions trigger:
@@ -95,7 +95,7 @@ From `user_env.py`:
 - Toggle gallery‑folder mode
 
 <p align="center">
-  <img src="./readme/UserFiles.png" width="400" />
+  <img src="./readme/UserFiles.png" />
 </p>
 
 ### 🖥️ **Transparent Themed Admin UI**
