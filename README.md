@@ -1,5 +1,5 @@
 <p align="center">
-<img src="./sentinel-web/assets/logo_transparent.png" alt="ComfyUI Sentinel Logo" width="200px">
+<img src="./web/assets/dark_logo_transparent.png" alt="ComfyUI Sentinel Logo" width="200px">
 </p>
 
 <div align="center">
