@@ -1,180 +1,325 @@
+# ComfyUI Usgromana
+
 <p align="center">
-<img src="./web/assets/dark_logo_transparent.png" alt="ComfyUI Sentinel Logo" width="200px">
+  <img src="./web/assets/dark_logo_transparent.png" width="220" />
 </p>
 
-<div align="center">
+<p align="center">
+  <strong>The next-generation security, governance, permissions, and multi‑user control system for ComfyUI.</strong>
+</p>
 
-# ComfyUI Sentinel
-#### ComfyUI Extension for Advanced Security. Implements login, multi-user registration, IP filtering, and user-specific input/output directories.
+---
 
-</div>
+## Table of Contents
+1. [Overview](#overview)  
+2. [Key Features](#key-features)  
+3. [Architecture](#architecture)  
+4. [Installation](#installation)  
+5. [Folder Structure](#folder-structure)  
+6. [RBAC Roles](#rbac-roles)  
+7. [UI Enforcement Layer](#ui-enforcement-layer)  
+8. [Workflow Protection](#workflow-protection)  
+9. [IP Rules System](#ip-rules-system)  
+10. [User Environment Tools](#user-environment-tools)  
+11. [Settings Panel](#settings-panel)  
+12. [Backend Components](#backend-components)  
+13. [Troubleshooting](#troubleshooting)  
+14. [License](#license)
 
-### ***☢️ This is still under development. Use at your own risk. ☢️***
+---
 
-## Jump to Section
-- **[Installation](#installation)**
-- **[Setup](#setup)**
-- **[Features](#features)**
-- **[ToDo](#todo)**
-- **[API Access](#api-access)**
-- **[Disclaimer](#%EF%B8%8F-disclaimer)**
+## Overview
+
+**ComfyUI Usgromana** is a comprehensive security layer that adds:
+
+- Role‑Based Access Control (RBAC)  
+- UI element gating  
+- Workflow save/delete blocking  
+- Transparent user folder isolation  
+- IP whitelist and blacklist enforcement  
+- User environment management utilities  
+- A modern administrative panel with multiple tabs  
+- Dynamic theme integration with the ComfyUI dark mode  
+- Live UI popups, toast notifications, and visual enforcement  
+
+It replaces the older Sentinel system with a faster, cleaner, more modular architecture—fully rewritten for reliability and future expansion.
+
+---
+
+## Key Features
+
+### 🔐 **RBAC Security**
+Four roles: **Admin, Power, User, Guest**  
+Each with configurable permissions stored in `usgromana_groups.json`.
+
+### 🚫 **Save & Delete Workflow Blocking**
+Non‑privileged roles cannot:
+- Save workflows  
+- Export workflows  
+- Overwrite existing workflows  
+- Delete workflow files  
+
+All blocked actions trigger:
+- A server‑side 403  
+- A UI toast popup explaining the denial  
+
+### 👁️ **Dynamic UI Enforcement**
+Usgromana hides or disables:
+- Top‑menu items  
+- Sidebar tabs  
+- Settings categories  
+- Extension panels  
+- File menu operations  
+
+Enforcement occurs every 1 second to catch late‑loading UI elements.
+
+### 🌐 **IP Filtering System**
+Complete backend implementation:
+- Whitelist mode  
+- Blacklist mode  
+- Live editing in Usgromana settings tab  
+- Persistent storage via `ip_filter.py`  
+
+### 🗂️ **User Environment Tools**
+From `user_env.py`:
+- Purge a user’s folders  
+- List user-owned files  
+- Toggle gallery‑folder mode  
+
+### 🖥️ **Transparent Themed Admin UI**
+The administrative modal features:
+- Transparent blurred glass background  
+- Neon accent tabs  
+- Integrated logo watermark  
+- Scrollable permission tables  
+- Responsive layout  
+
+### 🔧 **Watcher Middleware**
+A new middleware that detects:
+- Forbidden workflow saves  
+- Forbidden deletes  
+And triggers UI-side toast popups through a custom fetch wrapper.
+
+---
+
+## Architecture
+
+```
+ComfyUI
+│
+├── Usgromana Core
+│   ├── access_control.py    → RBAC, path blocking, folder isolation
+│   ├── usgromana.py         → Route setup, JWT, auth flows, settings API
+│   ├── watcher.py           → Intercepts 403 codes and triggers popups
+│   ├── utils/
+│   │   ├── ip_filter.py     → Whitelist/blacklist system
+│   │   ├── user_env.py      → User folder management
+│   │   ├── sanitizer.py     → Input scrubbing
+│   │   ├── logger.py        → Logging hooks
+│   │   └── timeout.py       → Rate limiting
+│   └── web/
+│       ├── js/usgromana_settings.js → UI enforcement + settings panel
+│       ├── css/usgromana.css        → Themed UI
+│       └── assets/dark_logo_transparent.png
+│
+└── ComfyUI (upstream)
+```
+
+---
 
 ## Installation
 
-1. Navigate to your ComfyUI `custom_nodes` directory:
-```bash
-cd ComfyUI/custom_nodes
+1. Extract Usgromana into:
+```
+ComfyUI/custom_nodes/Usgromana/
 ```
 
-2. Clone this repository:
-```bash
-git clone https://github.com/LucipherDev/ComfyUI-Sentinel
+2. Restart ComfyUI.
+
+3. On first launch, register the initial admin.
+
+4. Open settings → **Usgromana** to configure.
+
+---
+
+## Folder Structure
+
+```
+Usgromana/
+│
+├── access_control.py
+├── usgromana.py
+│
+├── utils/
+│   ├── ip_filter.py
+│   ├── user_env.py
+│   ├── watcher.py
+│   └── sanitizer.py
+│
+├── web/
+│   ├── js/usgromana_settings.js
+│   ├── css/usgromana.css
+│   └── assets/dark_logo_transparent.png
+│
+└── users/
+    ├── users.json
+    └── usgromana_groups.json
 ```
 
-3. Install dependencies:
-```bash
-cd ComfyUI-Sentinel
-pip install -r requirements.txt
+---
+
+## RBAC Roles
+
+| Role | Description |
+|------|-------------|
+| **Admin** | Full access to all ComfyUI and Usgromana features. |
+| **Power** | Elevated user with additional permissions but no admin panel access. |
+| **User** | Standard user who can run workflows but cannot modify system behavior. |
+| **Guest** | Fully restricted by default—cannot run, upload, save, or manage. |
+
+Permissions are stored in:
+
+```
+users/usgromana_groups.json
 ```
 
-### Or Install via ComfyUI Manager
+and editable through the settings panel.
 
-## Setup
+---
 
-1. **Edit `config.json` according to your preferences:**
-    - `secret_key_env`: Name of the environment variable for the secret key used to encrypt JWT tokens. If no secret key is set, a random key will be generated.
-        - Type: **str**
-        - Default: **SECRET_KEY**
-    - `users_db`: Name of the user database file.
-        - Type: **str**
-        - Default: **users_db.json**
-    - `access_token_expiration_hours`: Duration (in hours) for which JWT tokens remain valid.
-        - Type: **number**
-        - Default: **12**
-    - `max_access_token_expiration_hours`: Max allowed duration (in hours) for which JWT tokens remain valid.
-        - Type: **number**
-        - Default: **8760**
-    - `log`: Name of the log file.
-        - Type: **str**
-        - Default: **sentinel.log**
-    - `log_levels`: Message levels to log.
-        - Type: **str**
-        - Options: **["INFO", "WARNING", "ERROR", "DEBUG"]**
-        - Default: **["INFO"]**
-    - `whitelist`: List of allowed IPs.
-        - Type: **str**
-        - Default: **whitelist.txt**
-    - `blacklist`: List of blocked IPs.
-        - Type: **str**
-        - Default: **blacklist.txt**
-    - `blacklist_after_attempts`: Number of failed login attempts before an IP is blacklisted (0 to disable).
-        - Type: **int**
-        - Default: **0**
-    - `free_memory_on_logout`: Free memory when a user logs out.
-        - Type: **bool**
-        - Default: **false**
-    - `force_https`: Force ComfyUI to use HTTPS.
-        - Type: **bool**
-        - Default: **false**
-    - `separate_users`: Isolate user input/output and queue history. <span style="color:#ef4444">****Experimental***</span>
-        - Type: **bool**
-        - Default: **false**
-    - `manager_admin_only`: Control who can access [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Manager)
-        - Type: **bool**
-        - Default: **false**
+## UI Enforcement Layer
 
-2. **Run ComfyUI**
-3. **Access the GUI URL**
-4. **Register the admin account**
+Usgromana dynamically modifies the UI by:
+- Injecting CSS rules to hide elements
+- Removing menu entries (Save, Load, Manage Extensions)
+- Blocking iTools, Crystools, rgthree, ImpactPack for restricted roles
+- Guarding PrimeVue dialogs (Save workflow warnings)
+- Intercepting hotkeys (Ctrl+S, Ctrl+O)
 
-**Done!**
+All logic is contained in:
 
-### Forgot Admin Password?
-- Delete the database file and start over.
-
-*OR*
-
-- Remove the admin user and promote an existing user to admin by adding `"admin": true` to their profile.
-
-***To remove Sentinel, delete the `ComfyUI-Sentinel` folder or uninstall via ComfyUI Manager.***
-
-## Features
-
-- ### Admin Registration
-    - Upon the first run, register an admin user with full access and management capabilities.
-
-![admin-register-page](https://github.com/user-attachments/assets/7b3575e8-0dce-4d8e-9417-17baa22bf95f)
-
-- ### User Registration
-    - Admins can register new users and assign credentials.
-
-![register-page](https://github.com/user-attachments/assets/0d5002d3-3ee8-4611-a83c-bffe101e8a04)
-
-- ### User Login
-
-![login-page](https://github.com/user-attachments/assets/2ba998eb-3774-4e20-aa15-69e429717028)
-
-- ### Generate Token
-    - Get a JWT token for accessing the API.
-
-![generate-token-page](https://github.com/user-attachments/assets/30dd6324-352b-46fb-96f9-2c7132096a16)
-
-- ### Logout
-    - A discreet logout button is available.
-
-![logout-button](https://github.com/user-attachments/assets/488e62b7-f124-4dfd-bade-1e6cb1dc84f3)
-
-- ### Timeout Protection
-    - Implements a timeout for IP addresses after too many failed login/register attempts. Maximum timeout is 5 minutes unless `blacklist_after_attempts > 0`, in which case the IP will be blacklisted.
-    
-![failed-attempts](https://github.com/user-attachments/assets/13d9be6e-9f14-47a5-a11d-aec0a9b8d33f)
-
-- ### IP Filtering
-    - Filters IP addresses based on whitelist/blacklist rules.
-        - **If a whitelist exists, only those IPs will be allowed.**
-        - Otherwise, blacklisted IPs will be blocked.
-
-- ### Separate Users <span style="color:#ef4444">****Experimental***</span>
-    - Each user has an isolated input/output directory and queue history. Folder access is restricted accordingly. *Still under development but fairly functional. Use at your own risk*
-
-- ### ComfyUI Manager Access
-    - If turned on, only the admin user will be able to access the [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Manager) Extension.
-
-## API Access
-
-All API calls to the ComfyUI server require authentication.
-You can:
-- Include the authentication token in headers: `Authorization: Bearer eyJhbGci...`
-- Include it as a cookie named `jwt_token` in the request.
-
-### Register
-
-**Endpoint:**  `POST /register`
-
-**Request Body:**
-```json
-{
-  "new_user_username": "your_username",
-  "new_user_password": "your_password",
-  "username": "admin_username",   // Required if admin exists
-  "password": "admin_password"    // Required if admin exists
-}
+```
+web/js/usgromana_settings.js
 ```
 
-### Login
+---
 
-**Endpoint:**  `POST /login`
+## Workflow Protection
 
-**Request Body:**
-```json
-{
-  "username": "your_username",
-  "password": "your_password"
-}
+If a user lacking permission tries to save:
+
+1. Backend blocks the operation (`can_modify_workflows`)
+2. watcher.py detects the 403 with code `"WORKFLOW_SAVE_DENIED"`
+3. UI shows a centered toast popup:
+   > “You do not have permission to save workflows.”
+
+Same for delete operations.
+
+---
+
+## IP Rules System
+
+Located in:
+
+```
+utils/ip_filter.py
 ```
 
-## ⚠️ Disclaimer  
+### Features
+- Whitelist mode: Only listed IPs allowed
+- Blacklist mode: Block specific IPs
+- Configurable through new “IP Rules” tab in settings
+- Changes applied instantly to middleware
 
-*While **ComfyUI Sentinel** enhances security for ComfyUI, it **does not guarantee absolute protection**. Security is about risk mitigation, not elimination. Users are responsible for implementing their own security measures.*  
+---
 
-***Use at your own discretion.***
+## User Environment Tools
+
+From:
+
+```
+utils/user_env.py
+```
+
+Features:
+- Purge a user’s input/output/temp folders
+- List all user-bound files
+- Toggle whether their folder functions as a gallery
+
+Exposed through the “User Env” tab in the Usgromana settings modal.
+
+---
+
+## Settings Panel
+
+Access via:
+**Settings → Usgromana**
+
+Tabs:
+
+1. **Users & Roles**  
+2. **Permissions & UI**  
+3. **IP Rules**  
+4. **User Environment**
+
+### Additional UI Features
+- Integrated logout button in the settings entry  
+- Transparent blurred panel  
+- Neon-accented tab bar  
+- Logo watermark in top-right  
+
+---
+
+## Backend Components
+
+### `access_control.py`
+- Folder isolation  
+- RBAC  
+- Middleware for blocking paths  
+- Workflow protection  
+- Extension gating  
+
+### `usgromana.py`
+- All routes `/usgromana/api/*`
+- JWT auth handling
+- Registration & login flows
+- Guest login
+
+### `watcher.py`
+- Intercepts 403s
+- Sends structured JS events
+
+### `ip_filter.py`
+- Whitelist & blacklist logic
+- Persistent storage
+
+### `user_env.py`
+- Folder operations
+- Metadata tools
+
+---
+
+## Troubleshooting
+
+### Missing Logo
+Ensure the file exists:
+```
+Usgromana/web/assets/dark_logo_transparent.png
+```
+
+### UI Not Updating
+Clear browser cache or disable caching dev tools.
+
+### Guest cannot run workflows
+Check:
+```
+can_run = true
+```
+in `usgromana_groups.json`.
+
+---
+
+## License
+MIT License  
+You may modify and redistribute freely.
+
