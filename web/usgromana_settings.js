@@ -806,182 +806,379 @@ renderUsers(list, container) {
         };
     }
 
-    renderUserEnv(container, usersList) {
-        const users = usersList || [];
+renderUserEnv(container, usersList) {
+    const users = usersList || [];
 
-        const userOptions = users
-            .map(u => {
-                const name = u.username || "unknown";
-                return `<option value="${name}">${name}</option>`;
-            })
-            .join("");
+    const userOptions = users
+        .map(u => {
+            const name = u.username || "unknown";
+            return `<option value="${name}">${name}</option>`;
+        })
+        .join("");
 
-        container.innerHTML = `
-            <div class="usgromana-section">
-                <h3>User Environment & Folders</h3>
-                <p>
-                    Manage per-user folders created by <code>user_env.py</code>.
-                    You can inspect files, purge cached folders, and mark a user's
-                    folder as the active Gallery root.
-                </p>
+    container.innerHTML = `
+        <div class="usgromana-section">
+            <h3>User Environment & Folders</h3>
+            <p>
+                Manage per-user environment folders created by <code>user_env.py</code>.
+                You can inspect files, purge cached folders, delete individual files,
+                and mark a user's folder as the active Gallery root.
+            </p>
 
-                <div class="usgromana-row">
-                    <div>
-                        <label class="usgromana-field-label">User</label>
-                        <select id="usgromana-env-user" class="usgromana-select">
-                            ${userOptions}
-                        </select>
-                    </div>
-                    <div style="display:flex; align-items:flex-end; gap:8px; justify-content:flex-end;">
-                        <button class="usgromana-btn secondary" id="usgromana-env-list">List Files</button>
-                        <button class="usgromana-btn danger" id="usgromana-env-purge">Purge Folders</button>
-                    </div>
+            <div class="usgromana-row">
+                <div>
+                    <label class="usgromana-field-label">User</label>
+                    <select id="usgromana-env-user" class="usgromana-select">
+                        ${userOptions}
+                    </select>
                 </div>
-
-                <div class="usgromana-row" style="align-items:center; margin-top:4px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <input type="checkbox" id="usgromana-env-gallery-toggle" />
-                        <label for="usgromana-env-gallery-toggle">
-                            Use this user's folder as Gallery root
-                        </label>
-                    </div>
-                </div>
-
-                <div style="margin-top:12px;">
-                    <label class="usgromana-field-label">Folder Contents / Status</label>
-                    <textarea id="usgromana-env-output" class="usgromana-textarea" readonly></textarea>
+                <div style="display:flex; align-items:flex-end; gap:8px; justify-content:flex-end;">
+                    <button class="usgromana-btn secondary" id="usgromana-env-list">List Files</button>
+                    <button class="usgromana-btn danger" id="usgromana-env-purge">Purge Folders</button>
                 </div>
             </div>
-        `;
 
-        const userSelect = container.querySelector("#usgromana-env-user");
-        const listBtn = container.querySelector("#usgromana-env-list");
-        const purgeBtn = container.querySelector("#usgromana-env-purge");
-        const galleryToggle = container.querySelector("#usgromana-env-gallery-toggle");
-        const output = container.querySelector("#usgromana-env-output");
+            <div class="usgromana-row" style="align-items:center; margin-top:4px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" id="usgromana-env-gallery-toggle" />
+                    <label for="usgromana-env-gallery-toggle">
+                        Use this user's folder as Gallery root
+                    </label>
+                </div>
+            </div>
 
-        function getSelectedUser() {
-            return userSelect?.value || null;
+            <div style="margin-top:12px;">
+                <label class="usgromana-field-label">Folder Contents / Status</label>
+                <textarea id="usgromana-env-output" class="usgromana-textarea" readonly></textarea>
+            </div>
+
+            <div class="usgromana-row" style="margin-top:8px; align-items:flex-end; gap:8px;">
+                <div style="flex:1;">
+                    <label class="usgromana-field-label">Delete Single File</label>
+                    <select id="usgromana-env-file" class="usgromana-select">
+                        <option value="">(no files loaded yet)</option>
+                    </select>
+                </div>
+                <button class="usgromana-btn danger" id="usgromana-env-delete">Delete File</button>
+            </div>
+        </div>
+
+        <div class="usgromana-section" style="margin-top:16px;">
+            <h3>Workflow Management</h3>
+            <p>
+                Promote a user's workflow into the global/default workflow list
+                so it becomes visible to all users.
+            </p>
+
+            <div class="usgromana-row">
+                <div>
+                    <label class="usgromana-field-label">User</label>
+                    <select id="usgromana-wf-user" class="usgromana-select">
+                        ${userOptions}
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label class="usgromana-field-label">Workflow</label>
+                    <select id="usgromana-wf-select" class="usgromana-select">
+                        <option value="">(load workflows...)</option>
+                    </select>
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:8px;">
+                    <button class="usgromana-btn secondary" id="usgromana-wf-load">Load Workflows</button>
+                    <button class="usgromana-btn primary" id="usgromana-wf-promote">Promote to Default</button>
+                </div>
+            </div>
+            <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" id="usgromana-wf-delete-source" />
+                <label for="usgromana-wf-delete-source">
+                    Remove from this user's workflow folder after promotion
+                </label>
+            </div>
+            <div style="margin-top:6px;">
+                <small id="usgromana-wf-status" class="usgromana-muted"></small>
+            </div>
+        </div>
+    `;
+
+    const userSelect = container.querySelector("#usgromana-env-user");
+    const listBtn = container.querySelector("#usgromana-env-list");
+    const purgeBtn = container.querySelector("#usgromana-env-purge");
+    const galleryToggle = container.querySelector("#usgromana-env-gallery-toggle");
+    const output = container.querySelector("#usgromana-env-output");
+    const fileSelect = container.querySelector("#usgromana-env-file");
+    const deleteBtn = container.querySelector("#usgromana-env-delete");
+
+    const wfUserSelect = container.querySelector("#usgromana-wf-user");
+    const wfSelect = container.querySelector("#usgromana-wf-select");
+    const wfLoadBtn = container.querySelector("#usgromana-wf-load");
+    const wfPromoteBtn = container.querySelector("#usgromana-wf-promote");
+    const wfDeleteSource = container.querySelector("#usgromana-wf-delete-source");
+    const wfStatus = container.querySelector("#usgromana-wf-status");
+
+    let envFiles = [];
+
+    function getSelectedUser() {
+        return userSelect?.value || null;
+    }
+
+    function getWorkflowUser() {
+        return wfUserSelect?.value || getSelectedUser() || null;
+    }
+
+    function populateEnvFileOptions(files) {
+        envFiles = files || [];
+        if (!fileSelect) return;
+
+        fileSelect.innerHTML = "";
+
+        if (!envFiles.length) {
+            fileSelect.innerHTML = `<option value="">(no files)</option>`;
+            return;
         }
 
-        async function refreshStatus() {
-            const user = getSelectedUser();
-            if (!user) return;
-            output.value = "Loading status...";
-            try {
-                const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
-                    method: "POST",
-                    body: JSON.stringify({ action: "status", user }),
-                });
-                if (res.status === 200) {
-                    const data = await res.json();
-                    galleryToggle.checked = !!data.is_gallery_root;
-                    const files = data.files || [];
-                    output.value =
-                        (data.message || "") +
-                        (files.length
-                            ? "\\n\\nFiles:\\n" + files.join("\\n")
-                            : files.length === 0
-                            ? "\\n\\n(no files reported)"
-                            : "");
-                } else {
-                    output.value = "Error fetching status: " + res.status;
-                }
-            } catch (e) {
-                console.error("[usgromana] env status error:", e);
-                output.value = "Error fetching status. See console.";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "(select a file...)";
+        fileSelect.appendChild(placeholder);
+
+        envFiles.forEach(path => {
+            const opt = document.createElement("option");
+            opt.value = path;
+            opt.textContent = path;
+            fileSelect.appendChild(opt);
+        });
+    }
+
+    async function refreshStatus() {
+        const user = getSelectedUser();
+        if (!user) return;
+        output.value = "Loading status...";
+        try {
+            const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
+                method: "POST",
+                body: JSON.stringify({ action: "status", user }),
+            });
+            if (res.status === 200) {
+                const data = await res.json();
+                galleryToggle.checked = !!data.is_gallery_root;
+                const files = data.files || [];
+                populateEnvFileOptions(files);
+                output.value =
+                    (data.message || "") +
+                    (files.length
+                        ? "\n\nFiles:\n" + files.join("\n")
+                        : files.length === 0
+                        ? "\n\n(no files reported)"
+                        : "");
+            } else {
+                output.value = "Error loading status: " + res.status;
             }
-        }
-
-        userSelect.onchange = () => {
-            refreshStatus();
-        };
-
-        listBtn.onclick = async () => {
-            const user = getSelectedUser();
-            if (!user) return;
-            output.value = "Listing files...";
-            try {
-                const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
-                    method: "POST",
-                    body: JSON.stringify({ action: "list", user }),
-                });
-                if (res.status === 200) {
-                    const data = await res.json();
-                    const files = data.files || [];
-                    output.value = files.length
-                        ? files.join("\\n")
-                        : "(no files found)";
-                } else {
-                    output.value = "Error listing files: " + res.status;
-                }
-            } catch (e) {
-                console.error("[usgromana] env list error:", e);
-                output.value = "Error listing files. See console.";
-            }
-        };
-
-        purgeBtn.onclick = async () => {
-            const user = getSelectedUser();
-            if (!user) return;
-
-            if (!confirm(`Purge environment folders for user "${user}"? This cannot be undone.`)) {
-                return;
-            }
-
-            output.value = "Purging folders...";
-            purgeBtn.disabled = true;
-            try {
-                const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
-                    method: "POST",
-                    body: JSON.stringify({ action: "purge", user }),
-                });
-                if (res.status === 200) {
-                    const data = await res.json();
-                    output.value = data.message || "Purge completed.";
-                } else {
-                    output.value = "Error purging folders: " + res.status;
-                }
-            } catch (e) {
-                console.error("[usgromana] env purge error:", e);
-                output.value = "Error purging folders. See console.";
-            } finally {
-                purgeBtn.disabled = false;
-                refreshStatus();
-            }
-        };
-
-        galleryToggle.onchange = async () => {
-            const user = getSelectedUser();
-            if (!user) return;
-            const enable = galleryToggle.checked;
-
-            try {
-                const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
-                    method: "POST",
-                    body: JSON.stringify({
-                        action: "set_gallery_root",
-                        user,
-                        enable,
-                    }),
-                });
-                if (res.status === 200) {
-                    const data = await res.json();
-                    output.value = (data.message || "Gallery root updated.") + "\\n\\n" + (output.value || "");
-                } else {
-                    output.value = "Error updating gallery root: " + res.status;
-                }
-            } catch (e) {
-                console.error("[usgromana] env gallery toggle error:", e);
-                output.value = "Error updating gallery root. See console.";
-            }
-        };
-
-        // Initial status for first user
-        if (users.length > 0) {
-            refreshStatus();
+        } catch (e) {
+            console.error("[usgromana] env status error:", e);
+            output.value = "Error loading status. See console.";
         }
     }
+
+    userSelect.onchange = () => {
+        if (wfUserSelect) wfUserSelect.value = userSelect.value;
+        refreshStatus();
+    };
+
+    listBtn.onclick = async () => {
+        const user = getSelectedUser();
+        if (!user) return;
+        output.value = "Listing files...";
+        try {
+            const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
+                method: "POST",
+                body: JSON.stringify({ action: "list", user }),
+            });
+            if (res.status === 200) {
+                const data = await res.json();
+                const files = data.files || [];
+                populateEnvFileOptions(files);
+                output.value = files.length
+                    ? files.join("\n")
+                    : "(no files found)";
+            } else {
+                output.value = "Error listing files: " + res.status;
+            }
+        } catch (e) {
+            console.error("[usgromana] env list error:", e);
+            output.value = "Error listing files. See console.";
+        }
+    };
+
+    deleteBtn.onclick = async () => {
+        const user = getSelectedUser();
+        const file = fileSelect?.value;
+        if (!user || !file) return;
+        output.value = `Deleting '${file}'...`;
+        try {
+            const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
+                method: "POST",
+                body: JSON.stringify({ action: "delete_file", user, file }),
+            });
+            const data = await res.json();
+            if (res.status === 200) {
+                output.value = data.message || `Deleted '${file}'.`;
+            } else {
+                output.value = data.error || `Error deleting file: ${res.status}`;
+            }
+        } catch (e) {
+            console.error("[usgromana] env delete_file error:", e);
+            output.value = "Error deleting file. See console.";
+        } finally {
+            refreshStatus();
+        }
+    };
+
+    purgeBtn.onclick = async () => {
+        const user = getSelectedUser();
+        if (!user) return;
+        purgeBtn.disabled = true;
+        output.value = "Purging...";
+        try {
+            const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
+                method: "POST",
+                body: JSON.stringify({ action: "purge", user }),
+            });
+            if (res.status === 200) {
+                const data = await res.json();
+                output.value = data.message || "Purge completed.";
+            } else {
+                output.value = "Error purging folders: " + res.status;
+            }
+        } catch (e) {
+            console.error("[usgromana] env purge error:", e);
+            output.value = "Error purging folders. See console.";
+        } finally {
+            purgeBtn.disabled = false;
+            refreshStatus();
+        }
+    };
+
+    galleryToggle.onchange = async () => {
+        const user = getSelectedUser();
+        if (!user) return;
+        const enable = galleryToggle.checked;
+
+        try {
+            const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
+                method: "POST",
+                body: JSON.stringify({
+                    action: "set_gallery_root",
+                    user,
+                    enable,
+                }),
+            });
+            if (res.status === 200) {
+                const data = await res.json();
+                output.value = data.message || "Gallery root updated.";
+            } else {
+                output.value = "Error updating gallery root: " + res.status;
+            }
+        } catch (e) {
+            console.error("[usgromana] env gallery toggle error:", e);
+            output.value = "Error updating gallery root. See console.";
+        }
+    };
+
+    // --- Workflow admin handlers ---
+
+    wfUserSelect.onchange = () => {
+        wfStatus.textContent = "";
+        wfSelect.innerHTML = '<option value="">(load workflows...)</option>';
+    };
+
+    wfLoadBtn.onclick = async () => {
+        const user = getWorkflowUser();
+        if (!user) return;
+        wfStatus.textContent = "Loading workflows...";
+        wfSelect.innerHTML = '<option value="">(loading...)</option>';
+
+        try {
+            const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
+                method: "POST",
+                body: JSON.stringify({
+                    action: "list_workflows",
+                    user,
+                }),
+            });
+            if (res.status === 200) {
+                const data = await res.json();
+                const workflows = data.workflows || [];
+                wfSelect.innerHTML = "";
+
+                if (!workflows.length) {
+                    wfSelect.innerHTML =
+                        '<option value="">(no workflows)</option>';
+                } else {
+                    workflows.forEach((wf) => {
+                        const opt = document.createElement("option");
+                        opt.value = wf;
+                        opt.textContent = wf;
+                        wfSelect.appendChild(opt);
+                    });
+                }
+
+                wfStatus.textContent = `Found ${workflows.length} workflow(s) for ${user}.`;
+            } else {
+                wfStatus.textContent =
+                    "Error loading workflows: " + res.status;
+            }
+        } catch (e) {
+            console.error("[usgromana] list_workflows error:", e);
+            wfStatus.textContent =
+                "Error loading workflows. See console.";
+        }
+    };
+
+    wfPromoteBtn.onclick = async () => {
+        const user = getWorkflowUser();
+        const workflow = wfSelect?.value;
+        if (!user || !workflow) return;
+        const delete_source = !!(wfDeleteSource && wfDeleteSource.checked);
+        wfStatus.textContent = `Promoting '${workflow}'...`;
+
+        try {
+            const res = await api.fetchApi(USER_ENV_API_ENDPOINT, {
+                method: "POST",
+                body: JSON.stringify({
+                    action: "promote_workflow",
+                    user,
+                    workflow,
+                    delete_source,
+                }),
+            });
+            const data = await res.json();
+            if (res.status === 200) {
+                wfStatus.textContent =
+                    data.message || "Workflow promoted to defaults.";
+                // If we deleted the source, refresh the list
+                if (delete_source) {
+                    wfLoadBtn.onclick();
+                }
+            } else {
+                wfStatus.textContent =
+                    data.error ||
+                    "Error promoting workflow: " + res.status;
+            }
+        } catch (e) {
+            console.error("[usgromana] promote_workflow error:", e);
+            wfStatus.textContent =
+                "Error promoting workflow. See console.";
+        }
+    };
+
+    // Initial sync + status
+    if (userSelect && wfUserSelect) {
+        wfUserSelect.value = userSelect.value;
+    }
+    if (users.length > 0) {
+        refreshStatus();
+    }
+}
 
     renderPerms(container) {
         // --- SCANNER: Find all Settings Categories ---
