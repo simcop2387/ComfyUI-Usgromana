@@ -49,19 +49,29 @@ async def api_users(request):
         users_list.append({
             "username": u.get("username", "unknown"),
             "groups": [g.lower() for g in u.get("groups", ["user"])],
-            "is_admin": u.get("admin", False)
+            "is_admin": u.get("admin", False),
+            # NEW: per-user SFW flag; default = True (SFW enabled)
+            "sfw_check": u.get("sfw_check", True),
         })
     return web.json_response({"users": users_list})
 
 @routes.put("/usgromana/api/users/{target_user}")
 async def api_update_user_route(request):
-    if not is_admin(request): return web.json_response({"error": "Admin only"}, status=403)
+    if not is_admin(request):
+        return web.json_response({"error": "Admin only"}, status=403)
+
     target = request.match_info["target_user"]
     data = await request.json()
+
     groups = [g.lower() for g in data.get("groups", [])]
     is_admin_flag = "admin" in groups
-    success = patch_user_group(target, groups, is_admin_flag)
-    if success: return web.json_response({"status": "ok"})
+
+    # NEW: optional SFW flag
+    sfw_check = data.get("sfw_check", None)
+
+    success = patch_user_group(target, groups, is_admin_flag, sfw_check)
+    if success:
+        return web.json_response({"status": "ok"})
     return web.Response(status=404)
 
 @routes.delete("/usgromana/api/users/{target_user}")
