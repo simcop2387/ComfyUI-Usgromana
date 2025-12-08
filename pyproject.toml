@@ -29,7 +29,7 @@ Documentation = "https://github.com/DayMan84/ComfyUI-Usgromana/wiki"
 "Bug Tracker" = "https://github.com/DayMan84/ComfyUI-Usgromana/issues"
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "dayman84"
 DisplayName = "ComfyUI-Usgromana"
 Icon = ""
 includes = [] 
