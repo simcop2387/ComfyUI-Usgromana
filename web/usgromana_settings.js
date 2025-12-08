@@ -83,6 +83,10 @@ const CSS_BLOCK_MAP = {
     ],
 
     // --- Extensions (Hotbars, Overlays, & Settings Menu) ---
+    "settings_comfy": [
+        "li[aria-label='Comfy']",
+        "li.p-listbox-option[aria-label='Comfy']"
+    ],
     "settings_extension": [
         "li[aria-label='Extension']",
         "li.p-listbox-option[aria-label='Extension']"
@@ -111,7 +115,7 @@ const CSS_BLOCK_MAP = {
         "li[aria-label='Mask Editor']",
         "li.p-listbox-option[aria-label='Mask Editor']"
     ],
-    
+
     // iTools
     "settings_itools": [
         ".itools-floating-bar", 
