@@ -3,7 +3,7 @@ import os
 import json
 import time
 from aiohttp import web
-from ..globals import jwt_auth
+from ..globals import jwt_auth, current_username_var
 from ..utils import user_env
 import folder_paths
 
@@ -227,5 +227,14 @@ async def middleware_dispatch(request):
              return await save_workflow(request, name_override=suffix)
         elif method == "DELETE":
              return await delete_workflow(request, name=suffix)
+
+    # --- Intercept prompt execution to mark current username ---
+    if path == "/prompt" and method in ("POST", "PUT"):
+        # Extract username from token
+        username = get_current_user(request)
+        current_username_var.set(username)
+
+        # Allow request to continue to normal ComfyUI /prompt handler
+        return None
 
     return None
