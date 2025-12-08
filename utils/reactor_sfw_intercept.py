@@ -2,14 +2,16 @@
 #
 # Per-user Reactor SFW bypass:
 # - Dynamically loads comfyui-reactor/scripts/reactor_sfw.py from disk
+# - Adds comfyui-reactor root to sys.path so reactor_utils and scripts.* imports work
 # - Monkey-patches nsfw_image()
 # - Reads sfw_check from users_db using current_username_var
 # - Never crashes the extension if Reactor is missing
 
 import importlib.util
 import os
+import sys
 
-from ..globals import users_db, current_username_var  # <-- you were missing this
+from ..globals import users_db, current_username_var
 
 
 def _load_reactor_module():
@@ -18,18 +20,30 @@ def _load_reactor_module():
         # base -> .../custom_nodes/ComfyUI-Usgromana
         base = os.path.dirname(os.path.dirname(__file__))
 
-        # One level up -> .../custom_nodes
-        # then comfyui-reactor/scripts/reactor_sfw.py
-        reactor_path = os.path.join(
-            base, "..", "comfyui-reactor", "scripts", "reactor_sfw.py"
+        # reactor_root -> .../custom_nodes/comfyui-reactor
+        reactor_root = os.path.abspath(
+            os.path.join(base, "..", "comfyui-reactor")
         )
-        reactor_path = os.path.abspath(reactor_path)
+        scripts_dir = os.path.join(reactor_root, "scripts")
+        reactor_path = os.path.join(scripts_dir, "reactor_sfw.py")
 
         if not os.path.exists(reactor_path):
             print("[Usgromana] Reactor SFW script not found at:", reactor_path)
             return None
 
+        # Add the Reactor root so:
+        #   from reactor_utils import download
+        #   from scripts.reactor_logger import logger
+        # both work as in the original environment.
+        if reactor_root not in sys.path:
+            sys.path.insert(0, reactor_root)
+            print("[Usgromana] Added Reactor root to sys.path:", reactor_root)
+
         spec = importlib.util.spec_from_file_location("reactor_sfw", reactor_path)
+        if spec is None or spec.loader is None:
+            print("[Usgromana] Could not create spec for reactor_sfw.")
+            return None
+
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return mod
