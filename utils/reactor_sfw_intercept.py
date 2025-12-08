@@ -1,50 +1,50 @@
 # utils/reactor_sfw_intercept.py
 #
-# Safe, optional hook for Reactor's SFW filter.
-# - If Reactor is installed and reactor_sfw is importable, we monkey-patch nsfw_image.
-# - If not, we just log and do nothing (extension still loads).
+# Per-user Reactor SFW bypass:
+# - Dynamically loads comfyui-reactor/scripts/reactor_sfw.py from disk
+# - Monkey-patches nsfw_image()
+# - Reads sfw_check from users_db using current_username_var
+# - Never crashes the extension if Reactor is missing
 
-import importlib
+import importlib.util
+import os
 
-from ..globals import users_db, current_username_var
+from ..globals import users_db, current_username_var  # <-- you were missing this
 
 
-def _try_import_reactor_module():
-    """
-    Try several likely import paths for Reactor's reactor_sfw module.
-    Return the module object or None if not found.
-    """
-    module = None
-
-    # 1) Preferred: comfyui_reactor.scripts.reactor_sfw
+def _load_reactor_module():
     try:
-        module = importlib.import_module("comfyui_reactor.scripts.reactor_sfw")
-        return module
-    except ModuleNotFoundError:
-        pass
-    except Exception as e:
-        print(f"[Usgromana] Error importing comfyui_reactor.scripts.reactor_sfw: {e}")
+        # This file: .../custom_nodes/ComfyUI-Usgromana/utils/reactor_sfw_intercept.py
+        # base -> .../custom_nodes/ComfyUI-Usgromana
+        base = os.path.dirname(os.path.dirname(__file__))
 
-    # 2) Fallback: reactor_sfw directly (some setups add scripts/ to sys.path)
-    try:
-        module = importlib.import_module("reactor_sfw")
-        return module
-    except ModuleNotFoundError:
-        pass
-    except Exception as e:
-        print(f"[Usgromana] Error importing reactor_sfw: {e}")
+        # One level up -> .../custom_nodes
+        # then comfyui-reactor/scripts/reactor_sfw.py
+        reactor_path = os.path.join(
+            base, "..", "comfyui-reactor", "scripts", "reactor_sfw.py"
+        )
+        reactor_path = os.path.abspath(reactor_path)
 
-    # If we get here, Reactor isn't importable in this environment
-    return None
+        if not os.path.exists(reactor_path):
+            print("[Usgromana] Reactor SFW script not found at:", reactor_path)
+            return None
+
+        spec = importlib.util.spec_from_file_location("reactor_sfw", reactor_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    except Exception as e:
+        print("[Usgromana] Failed to load reactor_sfw:", e)
+        return None
 
 
 def _apply_patch():
-    reactor_sfw_mod = _try_import_reactor_module()
+    reactor_sfw_mod = _load_reactor_module()
     if reactor_sfw_mod is None:
         print("[Usgromana] Reactor not found; SFW intercept is disabled.")
         return
 
-    # Make sure the attribute exists
     if not hasattr(reactor_sfw_mod, "nsfw_image"):
         print("[Usgromana] reactor_sfw.nsfw_image not found; cannot patch.")
         return
@@ -58,7 +58,6 @@ def _apply_patch():
         and always return False ("not NSFW").
         Otherwise, call the original implementation.
         """
-        username = None
         try:
             username = current_username_var.get(None)
         except LookupError:
