@@ -10,6 +10,7 @@ from .globals import (
 )
 from .utils import watcher 
 from .utils.bootstrap import ensure_groups_config
+from .utils import reactor_sfw_intercept  # noqa: F401
 from .routes import static, auth, admin, user, workflow_routes
 import server 
 
