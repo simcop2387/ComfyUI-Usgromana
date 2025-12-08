@@ -11,6 +11,10 @@ from .utils.timeout import Timeout
 from .utils.logger import Logger
 from .utils.sanitizer import Sanitizer
 
+import contextvars
+
+current_username_var = contextvars.ContextVar("usgromana_current_user", default=None)
+
 instance = PromptServer.instance
 app = instance.app
 routes = instance.routes
