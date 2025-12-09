@@ -93,7 +93,7 @@ class AccessControl:
                 return await handler(request)
             
             # 2. Core Extensions
-            if path.startswith(("/extensions/core", "/extensions/ComfyUI-Usgromana")):
+            if path.startswith(("/extensions/core", "/extensions/ComfyUI-Usgromana", "/extensions/Usgromana")):
                 return await handler(request)
 
             # 3. Resolve User
