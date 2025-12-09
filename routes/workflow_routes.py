@@ -4,7 +4,7 @@ import json
 import time
 from aiohttp import web
 
-from ..globals import jwt_auth, current_username_var
+from ..globals import jwt_auth, current_username_var, users_db
 from ..utils import user_env
 from ..utils.sfw_intercept.nsfw_guard import should_block_image_for_current_user
 import folder_paths
@@ -32,6 +32,47 @@ def get_current_user(request):
     except Exception:
         return "guest"
 
+def user_is_admin(username: str) -> bool:
+    """
+    Returns True if the given username is in the 'admin' group
+    according to users_db. Handles both dict and tuple returns.
+    Falls back safely to False on any error.
+    """
+    try:
+        record = users_db.get_user(username)
+        if not record:
+            print(f"[Usgromana] user_is_admin: no record for {username!r}")
+            return False
+
+        # users_db.get_user(...) might return:
+        # - a dict
+        # - a tuple where one element is the dict (e.g. (user_dict, something))
+        user_obj = None
+
+        if isinstance(record, dict):
+            user_obj = record
+        elif isinstance(record, tuple):
+            # Try to find the dict inside the tuple
+            for item in record:
+                if isinstance(item, dict):
+                    user_obj = item
+                    break
+
+        if not user_obj:
+            print(f"[Usgromana] user_is_admin: unexpected record type for {username!r}: {type(record)} -> {record!r}")
+            return False
+
+        groups = user_obj.get("groups") or user_obj.get("group") or []
+        if isinstance(groups, str):
+            groups = [groups]
+
+        is_admin = any(str(g).lower() == "admin" for g in groups)
+        print(f"[Usgromana] user_is_admin: {username!r} groups={groups!r} is_admin={is_admin}")
+        return is_admin
+
+    except Exception as e:
+        print(f"[Usgromana] user_is_admin error for {username!r}: {e}")
+        return False
 
 # --- Helper: Sanitize Name ---
 def sanitize_name(name: str | None) -> str | None:
@@ -213,6 +254,7 @@ async def get_workflow_content(request, name: str):
 async def delete_workflow(request, name: str | None):
     user = get_current_user(request)
 
+    # Resolve filename from query if not passed explicitly
     if not name:
         name = request.query.get("file", "")
     if not name:
@@ -220,23 +262,38 @@ async def delete_workflow(request, name: str | None):
 
     clean_name = sanitize_name(name)
     if not clean_name:
-        return web.Response(status=400)
+        return web.Response(status=400, text="Invalid filename")
 
+    # --- 1. Try deleting from the user's own folder ---
     user_dir = user_env.get_user_workflow_dir(user)
     user_path = os.path.join(user_dir, clean_name)
 
     if os.path.exists(user_path):
         os.remove(user_path)
         print(f"[Usgromana] User '{user}' deleted workflow: {clean_name}")
-        # Return {} to keep JSON parsers happy while signaling success
-        return web.json_response({})
+        # Match core ComfyUI: DELETE /userdata/{file} -> 204 No Content
+        return web.Response(status=204)
+
+    # --- 2. Try deleting from global/default folders ---
+    is_admin = user_is_admin(user)
+    print(f"[Usgromana] delete_workflow user={user!r}, is_admin={is_admin}, name={clean_name!r}")
 
     for global_dir in POTENTIAL_GLOBALS:
-        if os.path.exists(os.path.join(global_dir, clean_name)):
-            return web.Response(status=403, text="Cannot delete global workflows")
+        global_path = os.path.join(global_dir, clean_name)
+        if os.path.exists(global_path):
+            if is_admin:
+                os.remove(global_path)
+                print(
+                    f"[Usgromana] ADMIN '{user}' deleted GLOBAL workflow: "
+                    f"{clean_name} ({global_path})"
+                )
+                return web.Response(status=204)
+            else:
+                # Found in global, but user is not allowed to delete it
+                return web.Response(status=403, text="Cannot delete global workflows")
 
-    return web.Response(status=404)
-
+    # --- 3. Not found anywhere ---
+    return web.Response(status=404, text="Workflow not found")
 
 # --- 5. DISPATCHER / MIDDLEWARE ---
 async def middleware_dispatch(request):
