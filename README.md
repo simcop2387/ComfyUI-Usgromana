@@ -567,6 +567,8 @@ This project follows a semantic-style versioning flow adapted for active develop
   - **Metadata tag wipe
     - Resolved an issue which caused the metadata to be removed from images after being tagged as NSFW.
 
+=======
+
 ## **v1.7.7 — NSFW Guard API & Gallery Integration (2025-12-12)**
 ### 🛡️ NSFW Guard API Enhancements
 - **Metadata-based tagging system** 
