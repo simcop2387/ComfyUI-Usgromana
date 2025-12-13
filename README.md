@@ -562,7 +562,12 @@ This project follows a semantic-style versioning flow adapted for active develop
 
 ---
 
-## **v1.8.0 — NSFW Guard API & Gallery Integration (2025-12-12)**
+## **v 1.7.9 - Critical issue resol ed
+## 🛡️ NSFW API
+  - **Metadata tag wipe
+    - Resolved an issue which caused the metadata to be removed from images after being tagged as NSFW.
+
+## **v1.7.7 — NSFW Guard API & Gallery Integration (2025-12-12)**
 ### 🛡️ NSFW Guard API Enhancements
 - **Metadata-based tagging system** 
   - Images are now tagged with NSFW metadata stored alongside files (`.nsfw_metadata.json`)
