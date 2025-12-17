@@ -61,7 +61,7 @@ Four roles: **Admin, Power, User, Guest**
 Each with configurable permissions stored in `usgromana_groups.json`.
 
 <p align="center">
-  <img src="./readme/UsgromanaLogin.png" />
+  <img src="./readme/images/UsgromanaLogin.png" />
 </p>
 
 ### 🚫 **Save & Delete Workflow Blocking**
@@ -72,7 +72,7 @@ Non‑privileged roles cannot:
 - Delete workflow files  
 
 <p align="center">
-  <img src="./readme/AdminGroups.png" />
+  <img src="./readme/images/AdminGroups.png" />
 </p>
 
 All blocked actions trigger:
@@ -105,7 +105,7 @@ From `user_env.py`:
 - Toggle gallery‑folder mode
 
 <p align="center">
-  <img src="./readme/UserFiles.png" />
+  <img src="./readme/images/UserFiles.png" />
 </p>
 
 ### 🖥️ **Transparent Themed Admin UI**
@@ -132,7 +132,7 @@ A comprehensive public API that allows other ComfyUI extensions to:
 - **Automatic scanning** - Background scanning of output directory with caching
 - **Per-user enforcement** - SFW restrictions apply per-user based on role permissions
 
-See [API_USAGE.md](./API_USAGE.md) for complete documentation and examples.
+See [API_USAGE.md](./readme/API_USAGE.md) for complete documentation and examples.
 
 **Quick Example:**
 ```python
@@ -379,7 +379,7 @@ window.UsgromanaAdminTabs.register({
 ## API Endpoints
 
 ### NSFW Guard API (Public)
-The NSFW Guard API provides programmatic access to NSFW detection and enforcement. See [API_USAGE.md](./API_USAGE.md) for complete documentation.
+The NSFW Guard API provides programmatic access to NSFW detection and enforcement. See [API_USAGE.md](./readme/API_USAGE.md) for complete documentation.
 
 **Key Functions:**
 - `check_tensor_nsfw(images_tensor, threshold=0.5)` - Check image tensors
@@ -440,7 +440,7 @@ Manually mark an image as NSFW or SFW. Designed for integration with gallery ext
 
 ### Extension Integration
 
-**Extension Tabs API** - JavaScript API for extensions to add custom tabs to the admin panel. See [EXTENSION_TABS_API.md](./EXTENSION_TABS_API.md) for complete documentation.
+**Extension Tabs API** - JavaScript API for extensions to add custom tabs to the admin panel. See [EXTENSION_TABS_API.md](./readme/EXTENSION_TABS_API.md) for complete documentation.
 
 ---
 
