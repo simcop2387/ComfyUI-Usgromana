@@ -4,7 +4,7 @@ import uuid
 from aiohttp import web
 from ..globals import routes, users_db, jwt_auth, logger, timeout
 from ..constants import HTML_DIR
-from ..utils.bootstrap import ensure_guest_user, ensure_groups_config
+from ..utils.bootstrap import ensure_groups_config
 from ..utils.ip_filter import get_ip
 from ..utils import user_env
 
@@ -46,7 +46,6 @@ async def post_register(request: web.Request) -> web.Response:
 
     if is_first_admin:
         ensure_groups_config()
-        ensure_guest_user()
 
     logger.registration_success(ip, new_username, username if not is_first_admin else None)
     timeout.remove_failed_attempts(ip)
@@ -65,7 +64,6 @@ async def post_login(request: web.Request) -> web.Response:
     ip = get_ip(request)
     
     if str(sanitized_data.get("guest_login", "false")).lower() == "true":
-        ensure_guest_user()
         guest_id, _ = users_db.get_user("guest")
         if not guest_id: return web.json_response({"error": "Guest disabled"}, status=500)
         
