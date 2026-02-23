@@ -71,10 +71,14 @@ class JWTAuth:
                 return await handle_unauthorized_access(request, "/login")
 
             try:
+                self.logger.info(f"[JWT DEBUG] Decoding token for {request.path}, key type={type(self.__secret_key).__name__}, key len={len(self.__secret_key)}")
                 user = self.decode_access_token(token)
                 user_id = user.get("id")
                 username = user.get("username")
-                if not user_id == self.users_db.get_user(username)[0]:
+                self.logger.info(f"[JWT DEBUG] Token decoded OK: id={user_id}, username={username}")
+                db_result = self.users_db.get_user(username)
+                self.logger.info(f"[JWT DEBUG] DB lookup for '{username}': id={db_result[0]}, match={user_id == db_result[0]}")
+                if not user_id == db_result[0]:
                     raise ValueError(
                         f"User with username: {username} is not in the database"
                     )
@@ -86,10 +90,12 @@ class JWTAuth:
                 self.access_control.set_current_user_id(user_id, set_fallback)
 
             except jwt.ExpiredSignatureError:
+                self.logger.error(f"[JWT DEBUG] Token EXPIRED for {request.path}")
                 return await handle_unauthorized_access(
                     request, "/logout", message="Token has expired"
                 )
-            except jwt.DecodeError:
+            except jwt.DecodeError as e:
+                self.logger.error(f"[JWT DEBUG] Token DECODE ERROR for {request.path}: {e}")
                 return await handle_unauthorized_access(
                     request, "/logout", message="Token is invalid"
                 )
