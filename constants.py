@@ -3,6 +3,7 @@ import os
 import json
 import warnings
 import uuid
+import base64
 
 # --- Base Directories ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
