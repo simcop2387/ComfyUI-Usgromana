@@ -3,6 +3,7 @@ import os
 import json
 import warnings
 import uuid
+import base64
 
 # --- Base Directories ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,7 +37,7 @@ LOG_FILE = os.path.join(CURRENT_DIR, config_data.get("log", "usgromana.log"))
 
 # --- Configuration Values ---
 LOG_LEVELS = config_data.get("log_levels", ["INFO"])
-SECRET_KEY = os.getenv(config_data.get("secret_key_env", "SECRET_KEY"))
+SECRET_KEY = base64.urlsafe_b64decode(os.getenv(config_data.get("secret_key_env", "SECRET_KEY")))  
 if not SECRET_KEY:
     warnings.warn("[Usgromana] SECRET_KEY not set. Using random key (logouts on restart).")
     SECRET_KEY = "".join([str(uuid.uuid4().hex) for _ in range(128)])
@@ -50,4 +51,5 @@ FREE_MEMORY_ON_LOGOUT = config_data.get("free_memory_on_logout", True)
 FORCE_HTTPS = config_data.get("force_https", False)
 SEPERATE_USERS = config_data.get("seperate_users", True)
 MANAGER_ADMIN_ONLY = config_data.get("manager_admin_only", True)
+
 MATCH_HEADERS = {"X-Forwarded-Proto": "https"}
