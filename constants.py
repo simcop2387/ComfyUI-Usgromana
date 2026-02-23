@@ -36,7 +36,7 @@ LOG_FILE = os.path.join(CURRENT_DIR, config_data.get("log", "usgromana.log"))
 
 # --- Configuration Values ---
 LOG_LEVELS = config_data.get("log_levels", ["INFO"])
-SECRET_KEY = os.getenv(config_data.get("secret_key_env", "SECRET_KEY"))
+SECRET_KEY = base64.urlsafe_b64decode(os.getenv(config_data.get("secret_key_env", "SECRET_KEY")))  
 if not SECRET_KEY:
     warnings.warn("[Usgromana] SECRET_KEY not set. Using random key (logouts on restart).")
     SECRET_KEY = "".join([str(uuid.uuid4().hex) for _ in range(128)])
