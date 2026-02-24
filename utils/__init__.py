@@ -1,4 +1,3 @@
-from .config import *
 from .validate import *
 
 from .logger import Logger

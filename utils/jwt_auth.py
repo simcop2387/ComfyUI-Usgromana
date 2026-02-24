@@ -6,6 +6,7 @@ from .users_db import UsersDB
 from .access_control import AccessControl
 from .logger import Logger
 
+from ..constants import JWT_TOKEN_ALGORITHM, JWT_RS256_PRIVATE_KEY, JWT_RS256_PUBLIC_KEY, JWT_HS256_SECRET_KEY, TOKEN_EXPIRE_MINUTES
 
 class JWTAuth:
     def __init__(
@@ -13,18 +14,17 @@ class JWTAuth:
         users_db: UsersDB,
         access_control: AccessControl,
         logger: Logger,
-        secret_key: str,
-        expire_minutes: int = 12 * 60,
-        algorithm: str = "HS256",
     ):
         self.users_db = users_db
         self.access_control = access_control
         self.logger = logger
 
-        self.expire_minutes = expire_minutes
-        self.algorithm = algorithm
-
-        self.__secret_key = secret_key
+        if JWT_TOKEN_ALGORITHM == "HS256":
+            self.__encode_key = JWT_HS256_SECRET_KEY
+            self.__decode_key = JWT_HS256_SECRET_KEY
+        elif JWT_TOKEN_ALGORITHM == "RS256":
+            self.__encode_key = JWT_RS256_PRIVATE_KEY
+            self.__decode_key = JWT_RS256_PUBLIC_KEY
 
     @staticmethod
     def get_token_from_request(request: web.Request) -> str:
@@ -38,14 +38,15 @@ class JWTAuth:
         """Create a JWT access token."""
         to_encode = data.copy()
         if not expire_minutes:
-            expire_minutes = self.expire_minutes
+            expire_minutes = TOKEN_EXPIRE_MINUTES
         expire = datetime.now(timezone.utc) + timedelta(minutes=expire_minutes)
         to_encode.update({"exp": expire})
-        return jwt.encode(to_encode, self.__secret_key, algorithm=self.algorithm)
+            
+        return jwt.encode(to_encode, self.__encode_key, algorithm=JWT_TOKEN_ALGORITHM)
 
     def decode_access_token(self, token: str) -> dict:
         """Decode a JWT access token."""
-        return jwt.decode(token, self.__secret_key, algorithms=[self.algorithm])
+        return jwt.decode(token, self.__decode_key, algorithms=[JWT_TOKEN_ALGORITHM])
 
     def create_jwt_middleware(
         self,

@@ -34,10 +34,7 @@ access_control = AccessControl(
 jwt_auth = JWTAuth(
     users_db=users_db,
     access_control=access_control,
-    logger=logger,
-    secret_key=SECRET_KEY,
-    expire_minutes=TOKEN_EXPIRE_MINUTES,
-    algorithm=TOKEN_ALGORITHM
+    logger=logger
 )
 
 # 4. Network Security

@@ -3,6 +3,7 @@ import os
 import json
 import warnings
 import uuid
+import base64
 
 # --- Base Directories ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,14 +37,38 @@ LOG_FILE = os.path.join(CURRENT_DIR, config_data.get("log", "usgromana.log"))
 
 # --- Configuration Values ---
 LOG_LEVELS = config_data.get("log_levels", ["INFO"])
-SECRET_KEY = os.getenv(config_data.get("secret_key_env", "SECRET_KEY"))
-if not SECRET_KEY:
-    warnings.warn("[Usgromana] SECRET_KEY not set. Using random key (logouts on restart).")
-    SECRET_KEY = "".join([str(uuid.uuid4().hex) for _ in range(128)])
+
+JWT_TOKEN_ALGORITHM = config_data.get("jwt_token_algorithm", "HS256")
+
+JWT_HS256_SECRET_KEY = None
+JWT_RS256_PUBLIC_KEY = None
+JWT_RS256_PRIVATE_KEY = None
+
+if JWT_TOKEN_ALGORITHM == "HS256":
+    if config_data.get("secret_key_b64"):
+        JWT_HS256_SECRET_KEY = base64.urlsafe_b64decode(config_data.get("secret_key_b64"))
+    else:
+        JWT_HS256_SECRET_KEY = os.getenv(config_data.get("secret_key_env", "SECRET_KEY"))
+        if not JWT_HS256_SECRET_KEY:
+            warnings.warn("[Usgromana] JWT_HS256_SECRET_KEY not set. Using random key (logouts on restart).")
+            JWT_HS256_SECRET_KEY = "".join([str(uuid.uuid4().hex) for _ in range(128)])
+elif JWT_TOKEN_ALGORITHM == "RS256":
+    if not config_data.get("jwt_rs256_public_key"):
+        raise RuntimeError("JWT Signature algorithm is RS256, but public key not provided in config, failing to load")
+    else:
+        JWT_RS256_PUBLIC_KEY = base64.urlsafe_b64decode(config_data.get("jwt_rs256_public_key", None))
+
+    # Not requiring a private key for this, so that externally signed JWT are supportable
+    try:
+        JWT_RS256_PRIVATE_KEY = base64.urlsafe_b64decode(config_data.get("jwt_rs256_private_key", None))
+    except Exception as e:
+        warnings.warn("[Usgromana] JWT_RS256_PRIVATE_KEY not set or failed to b64 decode, logins/jwt must be handled externally, direct logins will fail")
+
+else:
+    raise RuntimeError(f"Unsupported JWT algorithm [{JWT_TOKEN_ALGORITHM}] in config, please choose HS256 or RS256")
 
 TOKEN_EXPIRE_MINUTES = 60 * config_data.get("access_token_expiration_hours", 12)
 MAX_TOKEN_EXPIRE_MINUTES = 60 * config_data.get("max_access_token_expiration_hours", 8760)
-TOKEN_ALGORITHM = "HS256"
 
 BLACKLIST_AFTER_ATTEMPTS = config_data.get("blacklist_after_attempts", 5)
 FREE_MEMORY_ON_LOGOUT = config_data.get("free_memory_on_logout", True)
