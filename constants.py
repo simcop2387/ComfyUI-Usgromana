@@ -78,4 +78,7 @@ MANAGER_ADMIN_ONLY = config_data.get("manager_admin_only", True)
 
 ENABLE_GUEST_ACCOUNT=config_data.get("enable_guest_account", True)
 
+JWT_CLAIM_USER_ID = config_data.get("jwt_claim_user_id", "id")
+JWT_CLAIM_USERNAME = config_data.get("jwt_claim_username", "username")
+
 MATCH_HEADERS = {"X-Forwarded-Proto": "https"}

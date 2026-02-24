@@ -6,7 +6,7 @@ from .users_db import UsersDB
 from .access_control import AccessControl
 from .logger import Logger
 
-from ..constants import JWT_TOKEN_ALGORITHM, JWT_RS256_PRIVATE_KEY, JWT_RS256_PUBLIC_KEY, JWT_HS256_SECRET_KEY, TOKEN_EXPIRE_MINUTES
+from ..constants import JWT_TOKEN_ALGORITHM, JWT_RS256_PRIVATE_KEY, JWT_RS256_PUBLIC_KEY, JWT_HS256_SECRET_KEY, TOKEN_EXPIRE_MINUTES, JWT_CLAIM_USER_ID, JWT_CLAIM_USERNAME
 
 class JWTAuth:
     def __init__(
@@ -35,18 +35,34 @@ class JWTAuth:
         return request.cookies.get("jwt_token")
 
     def create_access_token(self, data: dict, expire_minutes=None) -> str:
-        """Create a JWT access token."""
+        """Create a JWT access token.
+
+        Accepts internal claim names ("id", "username") and maps them to the
+        configured claim names before encoding.
+        """
         to_encode = data.copy()
+        if "id" in to_encode and JWT_CLAIM_USER_ID != "id":
+            to_encode[JWT_CLAIM_USER_ID] = to_encode.pop("id")
+        if "username" in to_encode and JWT_CLAIM_USERNAME != "username":
+            to_encode[JWT_CLAIM_USERNAME] = to_encode.pop("username")
         if not expire_minutes:
             expire_minutes = TOKEN_EXPIRE_MINUTES
         expire = datetime.now(timezone.utc) + timedelta(minutes=expire_minutes)
         to_encode.update({"exp": expire})
-            
         return jwt.encode(to_encode, self.__encode_key, algorithm=JWT_TOKEN_ALGORITHM)
 
     def decode_access_token(self, token: str) -> dict:
-        """Decode a JWT access token."""
-        return jwt.decode(token, self.__decode_key, algorithms=[JWT_TOKEN_ALGORITHM])
+        """Decode a JWT access token.
+
+        Maps configured claim names back to internal names ("id", "username")
+        before returning, so the rest of the application is claim-name agnostic.
+        """
+        decoded = jwt.decode(token, self.__decode_key, algorithms=[JWT_TOKEN_ALGORITHM])
+        if JWT_CLAIM_USER_ID != "id":
+            decoded["id"] = decoded.pop(JWT_CLAIM_USER_ID, None)
+        if JWT_CLAIM_USERNAME != "username":
+            decoded["username"] = decoded.pop(JWT_CLAIM_USERNAME, None)
+        return decoded
 
     def create_jwt_middleware(
         self,
@@ -73,8 +89,8 @@ class JWTAuth:
 
             try:
                 user = self.decode_access_token(token)
-                user_id = user.get("id")
-                username = user.get("username")
+                user_id = user.get(JWT_CLAIM_USER_ID)
+                username = user.get(JWT_CLAIM_USERNAME)
                 if not user_id == self.users_db.get_user(username)[0]:
                     raise ValueError(
                         f"User with username: {username} is not in the database"

@@ -87,6 +87,27 @@ Selects the JWT signing algorithm. Use `HS256` for shared-secret signing (typica
 
 ---
 
+#### JWT claim mapping
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `jwt_claim_user_id` | string | `"id"` | JWT claim to use for the user's unique ID. For Keycloak tokens use `"sub"`; for other providers this might be `"oid"`, `"uid"`, etc. |
+| `jwt_claim_username` | string | `"username"` | JWT claim to use for the user's display name. For Keycloak tokens use `"preferred_username"`; other common values are `"email"`, `"name"`, etc. |
+
+These allow externally-issued tokens (e.g. from Keycloak or other identity providers) to be used without modification. The mapping is handled transparently by the auth layer — the rest of the application always sees `id` and `username` regardless of what the token contains.
+
+**Example (Keycloak):**
+```json
+{
+    "jwt_token_algorithm": "RS256",
+    "jwt_rs256_public_key": "<base64url-encoded public key>",
+    "jwt_claim_user_id": "sub",
+    "jwt_claim_username": "preferred_username"
+}
+```
+
+---
+
 ### Token Expiration
 
 | Option | Type | Default | Description |
