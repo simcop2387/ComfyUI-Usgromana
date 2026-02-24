@@ -11,5 +11,6 @@
     "free_memory_on_logout": true,
     "force_https": false,
     "seperate_users": true,
-    "manager_admin_only": true
+    "manager_admin_only": true,
+    "enable_guest_account": true
 }

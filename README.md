@@ -57,8 +57,10 @@ It replaces the older Sentinel system with a faster, cleaner, more modular archi
 ## Key Features
 
 ### 🔐 **RBAC Security**
-Four roles: **Admin, Power, User, Guest**  
+Four roles: **Admin, Power, User, Guest**
 Each with configurable permissions stored in `usgromana_groups.json`.
+
+The guest account and login can be disabled by editing `config.json` and changing `enable_guest_account` to false
 
 <p align="center">
   <img src="./readme/images/UsgromanaLogin.png" />

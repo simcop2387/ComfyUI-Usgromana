@@ -51,4 +51,6 @@ FORCE_HTTPS = config_data.get("force_https", False)
 SEPERATE_USERS = config_data.get("seperate_users", True)
 MANAGER_ADMIN_ONLY = config_data.get("manager_admin_only", True)
 
+ENABLE_GUEST_ACCOUNT=config_data.get("enable_guest_account", True)
+
 MATCH_HEADERS = {"X-Forwarded-Proto": "https"}
