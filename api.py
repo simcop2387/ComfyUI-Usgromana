@@ -64,6 +64,7 @@ _set_latest_prompt_user = None
 _get_nsfw_pipeline = None
 _users_db = None
 _current_username_var = None
+_access_control = None
 _get_nsfw_tag = None
 _clear_nsfw_tag = None
 _clear_all_nsfw_tags = None
@@ -78,14 +79,15 @@ def _try_imports():
     global _get_nsfw_pipeline
     global _users_db
     global _current_username_var
+    global _access_control
     global _get_nsfw_tag
     global _clear_nsfw_tag
     global _clear_all_nsfw_tags
     global _set_nsfw_tag_manual
-    
+
     import sys
     import os
-    
+
     # Strategy 1: Relative import (when imported as a package from __init__.py)
     try:
         from .utils.sfw_intercept.nsfw_guard import (
@@ -98,13 +100,14 @@ def _try_imports():
             clear_all_nsfw_tags,
             set_nsfw_tag_manual,
         )
-        from .globals import users_db, current_username_var
+        from .globals import users_db, current_username_var, access_control
         _is_sfw_enforced_for_current_session = is_sfw_enforced_for_current_session
         _should_block_image_for_current_user = should_block_image_for_current_user
         _set_latest_prompt_user = set_latest_prompt_user
         _get_nsfw_pipeline = _get_nsfw_pipeline
         _users_db = users_db
         _current_username_var = current_username_var
+        _access_control = access_control
         _get_nsfw_tag = _get_nsfw_tag
         _clear_nsfw_tag = clear_nsfw_tag
         _clear_all_nsfw_tags = clear_all_nsfw_tags
@@ -113,12 +116,12 @@ def _try_imports():
         return True
     except (ImportError, ValueError, SystemError, AttributeError) as e:
         pass
-    
+
     # Strategy 2: Absolute import from extension root (when path is added to sys.path)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
-    
+
     try:
         from utils.sfw_intercept.nsfw_guard import (
             is_sfw_enforced_for_current_session,
@@ -130,13 +133,14 @@ def _try_imports():
             clear_all_nsfw_tags,
             set_nsfw_tag_manual,
         )
-        from globals import users_db, current_username_var
+        from globals import users_db, current_username_var, access_control
         _is_sfw_enforced_for_current_session = is_sfw_enforced_for_current_session
         _should_block_image_for_current_user = should_block_image_for_current_user
         _set_latest_prompt_user = set_latest_prompt_user
         _get_nsfw_pipeline = _get_nsfw_pipeline
         _users_db = users_db
         _current_username_var = current_username_var
+        _access_control = access_control
         _get_nsfw_tag = _get_nsfw_tag
         _clear_nsfw_tag = clear_nsfw_tag
         _clear_all_nsfw_tags = clear_all_nsfw_tags
@@ -145,7 +149,7 @@ def _try_imports():
         return True
     except (ImportError, AttributeError) as e:
         pass
-    
+
     # Strategy 3: Try importing using importlib (for when module name is known)
     try:
         import importlib
@@ -163,6 +167,7 @@ def _try_imports():
                         _get_nsfw_pipeline = nsfw_mod._get_nsfw_pipeline
                         _users_db = globals_mod.users_db
                         _current_username_var = globals_mod.current_username_var
+                        _access_control = getattr(globals_mod, 'access_control', None)
                         _get_nsfw_tag = getattr(nsfw_mod, '_get_nsfw_tag', None)
                         _clear_nsfw_tag = getattr(nsfw_mod, 'clear_nsfw_tag', None)
                         _clear_all_nsfw_tags = getattr(nsfw_mod, 'clear_all_nsfw_tags', None)
@@ -173,42 +178,162 @@ def _try_imports():
                     continue
     except Exception:
         pass
-    
+
     # Strategy 4: Try to find and import by file path
     try:
         import importlib.util
         current_dir = os.path.dirname(os.path.abspath(__file__))
         nsfw_guard_path = os.path.join(current_dir, "utils", "sfw_intercept", "nsfw_guard.py")
         globals_path = os.path.join(current_dir, "globals.py")
-        
+
         if os.path.exists(nsfw_guard_path) and os.path.exists(globals_path):
             # Load nsfw_guard module
             spec = importlib.util.spec_from_file_location("nsfw_guard", nsfw_guard_path)
             if spec and spec.loader:
                 nsfw_mod = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(nsfw_mod)
-                
+
                 # Load globals module
                 spec_globals = importlib.util.spec_from_file_location("globals", globals_path)
                 if spec_globals and spec_globals.loader:
                     globals_mod = importlib.util.module_from_spec(spec_globals)
                     spec_globals.loader.exec_module(globals_mod)
-                    
+
                     _is_sfw_enforced_for_current_session = nsfw_mod.is_sfw_enforced_for_current_session
                     _should_block_image_for_current_user = nsfw_mod.should_block_image_for_current_user
                     _set_latest_prompt_user = nsfw_mod.set_latest_prompt_user
                     _get_nsfw_pipeline = nsfw_mod._get_nsfw_pipeline
                     _users_db = globals_mod.users_db
                     _current_username_var = globals_mod.current_username_var
+                    _access_control = getattr(globals_mod, 'access_control', None)
                     _NSFW_GUARD_AVAILABLE = True
                     return True
     except Exception as e:
         pass
-    
+
     return False
 
-# Attempt to load the internal functions
+# Attempt to load the NSFW guard functions
 _try_imports()
+
+# _access_control, _users_db, and _current_username_var are loaded inside
+# _try_imports() alongside the NSFW guard.  If the NSFW guard failed to load
+# (e.g. torch / model not installed), those will still be None.  Try to import
+# them independently so that request identity and permission helpers work even
+# when the NSFW pipeline is not available.
+def _try_import_globals():
+    global _access_control, _users_db, _current_username_var
+
+    import sys, os
+
+    # Strategy 1: Relative import (when loaded as a package)
+    try:
+        from .globals import access_control, users_db, current_username_var
+        _access_control = access_control
+        _users_db = users_db
+        _current_username_var = current_username_var
+        print("[Usgromana API] access_control loaded independently via relative import")
+        return
+    except (ImportError, ValueError, SystemError, AttributeError):
+        pass
+
+    # Strategy 2: Absolute import (when extension root is on sys.path)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    try:
+        from globals import access_control, users_db, current_username_var
+        _access_control = access_control
+        _users_db = users_db
+        _current_username_var = current_username_var
+        print("[Usgromana API] access_control loaded independently via sys.path import")
+        return
+    except (ImportError, AttributeError):
+        pass
+
+    # Strategy 3: Scan sys.modules for the already-loaded Usgromana package
+    try:
+        for module_name in sys.modules:
+            if 'usgromana' in module_name.lower() or 'ComfyUI_Usgromana' in module_name:
+                try:
+                    mod = sys.modules[module_name]
+                    globals_mod = getattr(mod, 'globals', None)
+                    if globals_mod is None:
+                        continue
+                    ac = getattr(globals_mod, 'access_control', None)
+                    if ac is None:
+                        continue
+                    _access_control = ac
+                    _users_db = getattr(globals_mod, 'users_db', None)
+                    _current_username_var = getattr(globals_mod, 'current_username_var', None)
+                    print(f"[Usgromana API] access_control loaded independently via sys.modules ({module_name})")
+                    return
+                except (AttributeError, ImportError):
+                    continue
+    except Exception:
+        pass
+
+    # Strategy 4: Load globals.py directly by file path
+    try:
+        import importlib.util
+        globals_path = os.path.join(current_dir, "globals.py")
+        if os.path.exists(globals_path):
+            spec = importlib.util.spec_from_file_location("usgromana_globals", globals_path)
+            if spec and spec.loader:
+                globals_mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(globals_mod)
+                ac = getattr(globals_mod, 'access_control', None)
+                if ac is not None:
+                    _access_control = ac
+                    _users_db = getattr(globals_mod, 'users_db', None)
+                    _current_username_var = getattr(globals_mod, 'current_username_var', None)
+                    print("[Usgromana API] access_control loaded independently via file path")
+                    return
+    except Exception:
+        pass
+
+    print("[Usgromana API] WARNING: access_control could not be loaded — request_has_permission will not work")
+
+if _access_control is None:
+    _try_import_globals()
+
+
+def _get_access_control():
+    """
+    Return the live access_control instance, attempting a lazy lookup if it
+    was not available at module load time (e.g. this module was imported
+    before Usgromana's __init__.py had a chance to run).
+    """
+    global _access_control, _users_db, _current_username_var
+
+    if _access_control is not None:
+        return _access_control
+
+    # Re-run the globals import now that Usgromana may be fully loaded
+    _try_import_globals()
+
+    if _access_control is not None:
+        return _access_control
+
+    # Last resort: scan sys.modules for the fully-initialized package
+    import sys
+    for module_name, mod in list(sys.modules.items()):
+        if 'usgromana' in module_name.lower() or 'ComfyUI_Usgromana' in module_name:
+            try:
+                globals_mod = getattr(mod, 'globals', None)
+                if globals_mod is None:
+                    continue
+                ac = getattr(globals_mod, 'access_control', None)
+                if ac is not None:
+                    _access_control = ac
+                    _users_db = getattr(globals_mod, 'users_db', _users_db)
+                    _current_username_var = getattr(globals_mod, 'current_username_var', _current_username_var)
+                    print(f"[Usgromana API] access_control resolved lazily from sys.modules ({module_name})")
+                    return _access_control
+            except Exception:
+                continue
+
+    return None
 
 
 def is_available() -> bool:
@@ -664,6 +789,99 @@ def set_image_nsfw_tag(image_path: str, is_nsfw: bool, score: float = 1.0, label
         return False
 
 
+def get_request_user_id(request) -> Optional[str]:
+    """
+    Return the user ID (UUID) for the user making this HTTP request.
+
+    The user ID is the key used internally to identify the user — for example
+    as the name of their per-user output subfolder.  Returns None if the
+    request is unauthenticated or the user cannot be found.
+
+    Example usage in another extension:
+
+        user_id = get_request_user_id(request)
+        if user_id:
+            # Use user_id to scope data to this user
+            pass
+    """
+    ac = _get_access_control()
+    if ac is None:
+        print("[Usgromana API] get_request_user_id: access_control unavailable")
+        return None
+    try:
+        _, _, username = ac._get_user_role_and_permissions(request)
+        if not username:
+            print("[Usgromana API] get_request_user_id: no username resolved from request")
+            return None
+        uid, _ = _users_db.get_user(username)
+        print(f"[Usgromana API] get_request_user_id: username={username!r} -> uid={uid!r}")
+        return uid
+    except Exception as e:
+        print(f"[Usgromana API] get_request_user_id: error resolving user id: {e}")
+        return None
+
+
+def get_request_username(request) -> Optional[str]:
+    """
+    Return the username for the user making this HTTP request.
+
+    Returns None if the request is unauthenticated or the user cannot
+    be identified.
+
+    Example usage in another extension:
+
+        username = get_request_username(request)
+        logger.info(f"Request from user: {username}")
+    """
+    ac = _get_access_control()
+    if ac is None:
+        print("[Usgromana API] get_request_username: access_control unavailable")
+        return None
+    try:
+        _, _, username = ac._get_user_role_and_permissions(request)
+        print(f"[Usgromana API] get_request_username: resolved username={username!r}")
+        return username or None
+    except Exception as e:
+        print(f"[Usgromana API] get_request_username: error resolving username: {e}")
+        return None
+
+
+def request_has_permission(request, permission_key: str) -> bool:
+    """
+    Check whether the user making this HTTP request has the given permission.
+
+    Reads the permission value directly from the groups config for the user's
+    role.  Returns True only when the permission is explicitly set to True.
+    Returns False when the permission is absent, False, or the user cannot
+    be identified.
+
+    Example usage in another extension:
+
+        if not request_has_permission(request, "settings_myextension_feature"):
+            return web.Response(status=403, text="Access denied")
+    """
+    ac = _get_access_control()
+    if ac is None:
+        print(f"[Usgromana API] request_has_permission: access_control unavailable, failing open for {permission_key!r}")
+        return True
+    try:
+        role, perms, username = ac._get_user_role_and_permissions(request)
+        val = perms.get(permission_key)
+        # Mirror Usgromana middleware defaults: admin always allowed,
+        # non-guest allowed by default unless explicitly denied.
+        if role == "admin":
+            result = True
+        elif val is None:
+            result = (role != "guest")
+        else:
+            result = bool(val)
+        print(f"[Usgromana API] request_has_permission: username={username!r} role={role!r} key={permission_key!r} val={val!r} -> {result} | all perms keys: {sorted(perms.keys())}")
+        return result
+    except Exception as e:
+        print(f"[Usgromana API] request_has_permission: error checking permission {permission_key!r}: {e}")
+        return False
+
+
 # Export the public API
 __all__ = [
     "is_available",
@@ -677,5 +895,8 @@ __all__ = [
     "clear_image_nsfw_tag",
     "clear_all_nsfw_tags",
     "set_image_nsfw_tag",
+    "get_request_user_id",
+    "get_request_username",
+    "request_has_permission",
 ]
 
