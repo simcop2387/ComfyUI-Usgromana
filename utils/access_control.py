@@ -45,6 +45,7 @@ class AccessControl:
         self.__get_input_directory = folder_paths.get_input_directory
         self.__prompt_queue = self.server.prompt_queue
         self.__prompt_queue_put = self.__prompt_queue.put
+        self._user_id_by_prompt = {}  # prompt_id -> user_id side-channel
 
     def _load_group_config(self):
         if not os.path.exists(self.groups_config_file):
@@ -219,11 +220,12 @@ class AccessControl:
                 except Exception:
                     pass
 
-        if isinstance(item, tuple):
-            new_item = (*item, {"user_id": current_user_id})
-        else:
-            new_item = (item, {"user_id": current_user_id})
-        self.__prompt_queue_put(new_item)
+        # Track user_id in a side-channel dict keyed by prompt_id (item[1]).
+        # We do NOT modify the tuple itself — appending a dict to it breaks
+        # ComfyUI's normalize_history_item which does a strict 5-value unpack.
+        if isinstance(item, tuple) and len(item) > 1:
+            self._user_id_by_prompt[item[1]] = current_user_id
+        self.__prompt_queue_put(item)
 
     def user_queue_get(self, timeout=None):
         with self.__prompt_queue.not_empty:
@@ -238,43 +240,44 @@ class AccessControl:
             self.server.queue_updated()
             return (entry, task_id)
 
+    def _get_prompt_user_id(self, item):
+        """Look up the user_id for a queue item via the side-channel dict."""
+        if isinstance(item, tuple) and len(item) > 1:
+            return self._user_id_by_prompt.get(item[1])
+        return None
+
     def user_queue_task_done(self, item_id, history_result, **kwargs):
         with self.__prompt_queue.mutex:
             item = self.__prompt_queue.currently_running.pop(item_id)
             while len(self.__prompt_queue.history) > MAXIMUM_HISTORY_SIZE:
                 self.__prompt_queue.history.pop(next(iter(self.__prompt_queue.history)))
-            prompt_tuple = item[:-1] if isinstance(item[-1], dict) else item
-            meta = item[-1] if isinstance(item[-1], dict) else {}
-            self.__prompt_queue.history[prompt_tuple[1]] = {
-                "prompt": prompt_tuple,
+            # item[1] is the prompt_id; tuples are no longer modified
+            prompt_id = item[1] if isinstance(item, tuple) and len(item) > 1 else None
+            user_id = self._user_id_by_prompt.pop(prompt_id, None) if prompt_id else None
+            self.__prompt_queue.history[prompt_id] = {
+                "prompt": item,
                 "outputs": {},
                 "status": {
                     "completed": kwargs.get("completed"),
                     "messages": kwargs.get("messages"),
                 },
-                "user_id": meta.get("user_id"),
+                "user_id": user_id,
             }
             if history_result:
-                self.__prompt_queue.history[prompt_tuple[1]].update(history_result)
+                self.__prompt_queue.history[prompt_id].update(history_result)
             self.server.queue_updated()
 
     def user_queue_get_current_queue(self):
-        def unwrap(entry):
-            if isinstance(entry, tuple) and isinstance(entry[-1], dict): return entry[:-1]
-            return entry
-
         current_user = self.get_current_user_id()
         with self.__prompt_queue.mutex:
             running = []
             pending = []
             for item in self.__prompt_queue.currently_running.values():
-                meta = item[-1] if isinstance(item[-1], dict) else None
-                if not meta or meta.get("user_id") != current_user: continue
-                running.append(unwrap(item))
+                if self._get_prompt_user_id(item) != current_user: continue
+                running.append(item)
             for item in self.__prompt_queue.queue:
-                meta = item[-1] if isinstance(item[-1], dict) else None
-                if not meta or meta.get("user_id") != current_user: continue
-                pending.append(unwrap(item))
+                if self._get_prompt_user_id(item) != current_user: continue
+                pending.append(item)
             return (running, copy.deepcopy(pending))
 
     def user_queue_wipe_queue(self):
@@ -282,19 +285,14 @@ class AccessControl:
             current_user = self.get_current_user_id()
             self.__prompt_queue.queue = [
                 i for i in self.__prompt_queue.queue
-                if not (isinstance(i[-1], dict) and i[-1].get("user_id") == current_user)
+                if self._get_prompt_user_id(i) != current_user
             ]
             self.server.queue_updated()
 
     def user_queue_delete_queue_item(self, func):
-        def unwrap(entry):
-            if isinstance(entry, tuple) and isinstance(entry[-1], dict): return entry[:-1]
-            return entry
-
         with self.__prompt_queue.mutex:
             for i, item in enumerate(self.__prompt_queue.queue):
-                meta = item[-1] if isinstance(item[-1], dict) else None
-                if meta and meta.get("user_id") == self.get_current_user_id() and func(unwrap(item)):
+                if self._get_prompt_user_id(item) == self.get_current_user_id() and func(item):
                     self.__prompt_queue.queue.pop(i)
                     heapq.heapify(self.__prompt_queue.queue)
                     self.server.queue_updated()
