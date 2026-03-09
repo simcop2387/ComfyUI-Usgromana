@@ -900,3 +900,6 @@ __all__ = [
     "request_has_permission",
 ]
 
+# Verification log — remove once load issue is diagnosed
+print(f"[Usgromana API] loaded from {__file__!r}, request_has_permission defined={callable(globals().get('request_has_permission'))}, module name={__name__!r}")
+
