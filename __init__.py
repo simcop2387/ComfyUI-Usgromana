@@ -12,7 +12,7 @@ if assets_enable_requested():
     enable_comfy_assets(log=False)
 
 from .nodes import *
-from .constants import FORCE_HTTPS, SEPARATE_USERS, MATCH_HEADERS, JWT_TOKEN_ALGORITHM
+from .constants import FORCE_HTTPS, SEPARATE_USERS, MATCH_HEADERS, JWT_TOKEN_ALGORITHM, USERS_FILE
 from .globals import (
     app, ip_filter, sanitizer, timeout, jwt_auth, access_control,
     instance, current_username_var
