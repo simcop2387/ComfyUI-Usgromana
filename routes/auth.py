@@ -104,6 +104,8 @@ async def post_login(request: web.Request) -> web.Response:
 
 @routes.get("/logout")
 async def get_logout(request: web.Request) -> web.Response:
+    current_user = request.get("user")
+    print(f"[USGROMANA] /logout called for user={current_user}, has jwt_token cookie={bool(request.cookies.get('jwt_token'))}")
     resp = web.HTTPFound("/login")
     resp.del_cookie("jwt_token", path="/")
     return resp

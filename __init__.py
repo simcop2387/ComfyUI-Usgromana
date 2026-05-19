@@ -166,5 +166,6 @@ except Exception:
 print("------------------------------------------")
 print("[Usgromana] Security System Initialized.")
 print("[Usgromana] Workflow Storage Interceptor Active.")
+print(f"[Usgromana] JWT algorithm: {JWT_TOKEN_ALGORITHM}, users_db: {USERS_FILE}, users count: {len(users_db.users)}")
 print("------------------------------------------")
 # --- END OF FILE __init__.py ---

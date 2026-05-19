@@ -48,13 +48,16 @@ class UsersDB:
                 with open(self.database, "r", encoding="utf-8") as f:
                     try:
                         self.users = json.load(f)
+                        print(f"[USGROMANA] Loaded {len(self.users)} users from {self.database}")
                     except json.JSONDecodeError:
                         self.users = {}
+                        print(f"[USGROMANA] WARNING: JSON decode error in {self.database}, loading empty users")
                 # 🔧 Migration / safety: ensure groups exist for all users
                 self._ensure_groups_schema()
                 self._database_hash = self.calculate_file_hash()
             else:
                 self.users = {}
+                print(f"[USGROMANA] WARNING: Users database file NOT FOUND at {self.database}")
         return self.users
 
     def save_users(self, users: dict) -> None:
