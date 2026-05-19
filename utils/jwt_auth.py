@@ -80,18 +80,16 @@ class JWTAuth:
         """
         # Extract and log the JWT header to identify the signing key
         try:
-            header_b64 = token.split('.')[0]
-            # Add padding if needed for base64url decoding
-            header_b64 += '=' * (4 - len(header_b64) % 4)
-            header_json = base64.urlsafe_b64decode(header_b64)
             header = jwt.get_unverified_header(token)
             self.logger.info(f"[JWTAuth] decode_access_token: token header={header}, algorithm={JWT_TOKEN_ALGORITHM}")
         except Exception as e:
             self.logger.warning(f"[JWTAuth] decode_access_token: could not extract token header: {e}")
 
         self.logger.info(f"[JWTAuth] decode_access_token: attempting decode with algorithm={JWT_TOKEN_ALGORITHM}")
+        print(f"[JWTAuth-DEBUG] About to call jwt.decode(), key type={type(self.__decode_key)}, key len={len(self.__decode_key) if self.__decode_key else 0}")
         try:
             decoded = jwt.decode(token, self.__decode_key, algorithms=[JWT_TOKEN_ALGORITHM])
+            print(f"[JWTAuth-DEBUG] jwt.decode() returned successfully")
             self.logger.info(f"[JWTAuth] decode_access_token: successfully decoded, claims={list(decoded.keys())}")
         except jwt.ExpiredSignatureError:
             self.logger.warning(f"[JWTAuth] decode_access_token: token has expired")
