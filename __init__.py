@@ -15,7 +15,7 @@ from .nodes import *
 from .constants import FORCE_HTTPS, SEPARATE_USERS, MATCH_HEADERS, JWT_TOKEN_ALGORITHM, USERS_FILE
 from .globals import (
     app, ip_filter, sanitizer, timeout, jwt_auth, access_control,
-    instance, current_username_var
+    instance, current_username_var, users_db
 )
 from .utils import watcher
 from .utils.bootstrap import ensure_groups_config
