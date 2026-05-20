@@ -86,22 +86,38 @@ class JWTAuth:
             self.logger.warning(f"[JWTAuth] decode_access_token: could not extract token header: {e}")
 
         self.logger.info(f"[JWTAuth] decode_access_token: attempting decode with algorithm={JWT_TOKEN_ALGORITHM}")
-        print(f"[JWTAuth-DEBUG] About to call jwt.decode(), key type={type(self.__decode_key)}, key len={len(self.__decode_key) if self.__decode_key else 0}")
         try:
+            with open("/tmp/jwt_debug.log", "a") as _f:
+                _f.write(f"[JWTAuth-DEBUG] About to call jwt.decode(), key type={type(self.__decode_key)}, key len={len(self.__decode_key) if self.__decode_key else 0}\n")
+                _f.flush()
             decoded = jwt.decode(token, self.__decode_key, algorithms=[JWT_TOKEN_ALGORITHM])
-            print(f"[JWTAuth-DEBUG] jwt.decode() returned successfully")
+            with open("/tmp/jwt_debug.log", "a") as _f:
+                _f.write(f"[JWTAuth-DEBUG] jwt.decode() returned successfully, claims={list(decoded.keys())}\n")
+                _f.flush()
             self.logger.info(f"[JWTAuth] decode_access_token: successfully decoded, claims={list(decoded.keys())}")
         except jwt.ExpiredSignatureError:
+            with open("/tmp/jwt_debug.log", "a") as _f:
+                _f.write(f"[JWTAuth-DEBUG] jwt.decode() raised ExpiredSignatureError\n")
+                _f.flush()
             self.logger.warning(f"[JWTAuth] decode_access_token: token has expired")
             raise
         except jwt.InvalidTokenError as e:
+            with open("/tmp/jwt_debug.log", "a") as _f:
+                _f.write(f"[JWTAuth-DEBUG] jwt.decode() raised InvalidTokenError: {type(e).__name__}: {e}\n")
+                _f.flush()
             self.logger.error(f"[JWTAuth] decode_access_token: JWT validation FAILED - {type(e).__name__}: {e}")
             raise
         except Exception as e:
+            with open("/tmp/jwt_debug.log", "a") as _f:
+                _f.write(f"[JWTAuth-DEBUG] jwt.decode() raised {type(e).__name__}: {e}\n")
+                _f.flush()
             self.logger.error(f"[JWTAuth] decode_access_token: unexpected error during decode - {type(e).__name__}: {e}")
             raise
 
         self.logger.info(f"[JWTAuth] decode_access_token: raw decoded claims={list(decoded.keys())}")
+        with open("/tmp/jwt_debug.log", "a") as _f:
+            _f.write(f"[JWTAuth-DEBUG] Raw decoded claims: {list(decoded.keys())}\n")
+            _f.flush()
         if JWT_CLAIM_USER_ID != "id":
             self.logger.info(f"[JWTAuth] Remapping claim '{JWT_CLAIM_USER_ID}' -> 'id' (present={JWT_CLAIM_USER_ID in decoded})")
             decoded["id"] = decoded.pop(JWT_CLAIM_USER_ID, None)
@@ -109,6 +125,9 @@ class JWTAuth:
             self.logger.info(f"[JWTAuth] Remapping claim '{JWT_CLAIM_USERNAME}' -> 'username' (present={JWT_CLAIM_USERNAME in decoded})")
             decoded["username"] = decoded.pop(JWT_CLAIM_USERNAME, None)
         self.logger.info(f"[JWTAuth] decode_access_token: final claims={list(decoded.keys())}, id={decoded.get('id')}, username={decoded.get('username')}")
+        with open("/tmp/jwt_debug.log", "a") as _f:
+            _f.write(f"[JWTAuth-DEBUG] Final claims: {list(decoded.keys())}, id={decoded.get('id')}, username={decoded.get('username')}\n")
+            _f.flush()
         return decoded
 
     def create_jwt_middleware(
@@ -130,6 +149,9 @@ class JWTAuth:
                 or request.path.endswith(public_suffixes)
             ):
                 self.logger.info(f"[JWTAuth] Path '{request.path}' is public, skipping auth")
+                with open("/tmp/jwt_debug.log", "a") as _f:
+                    _f.write(f"[JWTAuth-DEBUG] Path '{request.path}' is public, skipping auth\n")
+                    _f.flush()
                 return await handler(request)
 
             # Log DB state for debugging
@@ -145,6 +167,9 @@ class JWTAuth:
                     f"(Authorization header present: {bool(auth_header)}, "
                     f"jwt_token cookie present: {bool(request.cookies.get('jwt_token'))})"
                 )
+                with open("/tmp/jwt_debug.log", "a") as _f:
+                    _f.write(f"[JWTAuth-DEBUG] No token found, redirecting to /login\n")
+                    _f.flush()
                 return await handle_unauthorized_access(request, "/login")
 
             token_preview = token[:30] + "..." if len(token) > 30 else token
@@ -155,9 +180,15 @@ class JWTAuth:
                 user_id = user.get("id")
                 username = user.get("username")
                 self.logger.info(f"[JWTAuth] Token decoded: user_id={user_id}, username={username}")
+                with open("/tmp/jwt_debug.log", "a") as _f:
+                    _f.write(f"[JWTAuth-DEBUG] After decode: user_id={user_id}, username={username}\n")
+                    _f.flush()
 
                 db_user = self.users_db.get_user(username)
                 self.logger.info(f"[JWTAuth] DB lookup for username='{username}': result id={db_user[0]}, user_data keys={list(db_user[1].keys()) if db_user[1] else 'empty'}")
+                with open("/tmp/jwt_debug.log", "a") as _f:
+                    _f.write(f"[JWTAuth-DEBUG] DB lookup result: id={db_user[0]}, keys={list(db_user[1].keys()) if db_user[1] else 'empty'}\n")
+                    _f.flush()
 
                 if db_user[0] is None:
                     self.logger.error(
@@ -188,19 +219,31 @@ class JWTAuth:
                 )
                 self.access_control.set_current_user_id(user_id, set_fallback)
                 self.logger.info(f"[JWTAuth] Auth success: user_id={user_id}, username={username}, path={request.path}")
+                with open("/tmp/jwt_debug.log", "a") as _f:
+                    _f.write(f"[JWTAuth-DEBUG] Auth success, continuing to handler\n")
+                    _f.flush()
 
             except jwt.ExpiredSignatureError:
                 self.logger.warning(f"[JWTAuth] Token expired for {request.method} {request.path}")
+                with open("/tmp/jwt_debug.log", "a") as _f:
+                    _f.write(f"[JWTAuth-DEBUG] Middleware caught ExpiredSignatureError, redirecting to /logout\n")
+                    _f.flush()
                 return await handle_unauthorized_access(
                     request, "/logout", message="Token has expired"
                 )
             except jwt.InvalidTokenError as e:
                 self.logger.error(f"[JWTAuth] Token invalid for {request.method} {request.path}: {type(e).__name__}: {e}")
+                with open("/tmp/jwt_debug.log", "a") as _f:
+                    _f.write(f"[JWTAuth-DEBUG] Middleware caught InvalidTokenError: {type(e).__name__}: {e}, redirecting to /logout\n")
+                    _f.flush()
                 return await handle_unauthorized_access(
                     request, "/logout", message="Token is invalid"
                 )
             except Exception as e:
                 self.logger.error(f"[JWTAuth] Unexpected error during auth for {request.method} {request.path}: {type(e).__name__}: {e}")
+                with open("/tmp/jwt_debug.log", "a") as _f:
+                    _f.write(f"[JWTAuth-DEBUG] Middleware caught {type(e).__name__}: {e}, redirecting to /logout\n")
+                    _f.flush()
                 return await handle_unauthorized_access(
                     request, "/logout", message="Unexpected error"
                 )

@@ -11,3 +11,6 @@ usgromana.log
 *.pyc
 __pycache__/
 .pytest_cache/
+
+# just a dumb experiment with ai while bored.
+tests/test_imports.py

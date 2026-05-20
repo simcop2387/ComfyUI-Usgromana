@@ -57,6 +57,9 @@ async def post_register(request: web.Request) -> web.Response:
 
 @routes.get("/login")
 async def get_login(request: web.Request) -> web.Response:
+    with open("/tmp/jwt_debug.log", "a") as _f:
+        _f.write(f"[JWTAuth-DEBUG] /login called: has_token={bool(jwt_auth.get_token_from_request(request))}, users_count={len(users_db.users)}\n")
+        _f.flush()
     if not users_db.load_users(): return web.HTTPFound("/register")
     if jwt_auth.get_token_from_request(request): return web.HTTPFound("/logout")
     path = os.path.join(HTML_DIR, "login.html")
@@ -106,6 +109,9 @@ async def post_login(request: web.Request) -> web.Response:
 async def get_logout(request: web.Request) -> web.Response:
     current_user = request.get("user")
     print(f"[USGROMANA] /logout called for user={current_user}, has jwt_token cookie={bool(request.cookies.get('jwt_token'))}")
+    with open("/tmp/jwt_debug.log", "a") as _f:
+        _f.write(f"[JWTAuth-DEBUG] /logout called: user={current_user}, has_cookie={bool(request.cookies.get('jwt_token'))}\n")
+        _f.flush()
     resp = web.HTTPFound("/login")
     resp.del_cookie("jwt_token", path="/")
     return resp
