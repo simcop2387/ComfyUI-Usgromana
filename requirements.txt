@@ -1,4 +1,5 @@
 aiohttp
 PyJWT
+cryptography
 bcrypt
 bleach
