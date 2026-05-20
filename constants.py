@@ -69,13 +69,17 @@ elif JWT_TOKEN_ALGORITHM == "RS256":
     if not config_data.get("jwt_rs256_public_key"):
         raise RuntimeError("JWT Signature algorithm is RS256, but public key not provided in config, failing to load")
     else:
-        JWT_RS256_PUBLIC_KEY = base64.urlsafe_b64decode(config_data.get("jwt_rs256_public_key", None))
+        JWT_RS256_PUBLIC_KEY = base64.urlsafe_b64decode(config_data.get("jwt_rs256_public_key", None)).decode("utf-8")
 
     # Not requiring a private key for this, so that externally signed JWT are supportable
-    try:
-        JWT_RS256_PRIVATE_KEY = base64.urlsafe_b64decode(config_data.get("jwt_rs256_private_key", None))
-    except Exception as e:
-        warnings.warn("[Usgromana] JWT_RS256_PRIVATE_KEY not set or failed to b64 decode, logins/jwt must be handled externally, direct logins will fail")
+    _priv_key_b64 = config_data.get("jwt_rs256_private_key")
+    if _priv_key_b64:
+        try:
+            JWT_RS256_PRIVATE_KEY = base64.urlsafe_b64decode(_priv_key_b64).decode("utf-8")
+        except Exception as e:
+            warnings.warn(f"[Usgromana] JWT_RS256_PRIVATE_KEY failed to b64 decode: {e}, logins/jwt must be handled externally")
+    else:
+        JWT_RS256_PRIVATE_KEY = None
 
 else:
     raise RuntimeError(f"Unsupported JWT algorithm [{JWT_TOKEN_ALGORITHM}] in config, please choose HS256 or RS256")

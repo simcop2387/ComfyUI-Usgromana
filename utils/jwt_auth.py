@@ -34,12 +34,7 @@ class JWTAuth:
             self.logger.info(f"[JWTAuth] RS256 private key loaded: {'yes' if JWT_RS256_PRIVATE_KEY else 'NO - KEY IS MISSING'}")
             self.logger.info(f"[JWTAuth] RS256 public key loaded: {'yes' if JWT_RS256_PUBLIC_KEY else 'NO - KEY IS MISSING'}")
             if JWT_RS256_PUBLIC_KEY:
-                # Log the modulus prefix to identify which Keycloak key this is
-                try:
-                    pem_text = JWT_RS256_PUBLIC_KEY.decode('utf-8')
-                    self.logger.info(f"[JWTAuth] RS256 public key PEM starts with: {pem_text[:80]}...")
-                except Exception:
-                    pass
+                self.logger.info(f"[JWTAuth] RS256 public key PEM starts with: {JWT_RS256_PUBLIC_KEY[:80]}...")
         else:
             self.logger.warning(f"[JWTAuth] Unknown algorithm '{JWT_TOKEN_ALGORITHM}' - encode/decode keys not set!")
 
@@ -89,6 +84,9 @@ class JWTAuth:
         try:
             with open("/tmp/jwt_debug.log", "a") as _f:
                 _f.write(f"[JWTAuth-DEBUG] About to call jwt.decode(), key type={type(self.__decode_key)}, key len={len(self.__decode_key) if self.__decode_key else 0}\n")
+                _f.flush()
+            with open("/tmp/jwt_debug.log", "a") as _f:
+                _f.write(f"[JWTAuth-DEBUG] Key value preview: {str(self.__decode_key)[:80]}\n")
                 _f.flush()
             decoded = jwt.decode(token, self.__decode_key, algorithms=[JWT_TOKEN_ALGORITHM])
             with open("/tmp/jwt_debug.log", "a") as _f:
