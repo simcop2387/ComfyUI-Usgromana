@@ -163,9 +163,11 @@ except Exception:
     except Exception:
         pass  # ComfyUI may handle route registration automatically
 
-print("------------------------------------------")
-print("[Usgromana] Security System Initialized.")
-print("[Usgromana] Workflow Storage Interceptor Active.")
-print(f"[Usgromana] JWT algorithm: {JWT_TOKEN_ALGORITHM}, users_db: {USERS_FILE}, users count: {len(users_db.users)}")
-print("------------------------------------------")
+import logging
+_log = logging.getLogger("usgromana")
+_log.debug("------------------------------------------")
+_log.debug("[Usgromana] Security System Initialized.")
+_log.debug("[Usgromana] Workflow Storage Interceptor Active.")
+_log.debug(f"[Usgromana] JWT algorithm: {JWT_TOKEN_ALGORITHM}, users_db: {USERS_FILE}, users count: {len(users_db.users)}")
+_log.debug("------------------------------------------")
 # --- END OF FILE __init__.py ---

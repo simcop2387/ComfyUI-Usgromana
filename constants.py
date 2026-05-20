@@ -4,6 +4,8 @@ import json
 import warnings
 import uuid
 import base64
+import logging
+_log = logging.getLogger("usgromana")
 
 # --- Base Directories ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,7 +38,7 @@ _users_db_configured = os.path.join(
     CURRENT_DIR, config_data.get("users_db", "users/users.json")
 )
 USERS_FILE = resolve_users_database_path(_users_db_configured, CURRENT_DIR)
-print(f"[USGROMANA] USERS_FILE path: {USERS_FILE} (config says: {config_data.get('users_db', 'users/users.json')})")
+_log.debug(f"[USGROMANA] USERS_FILE path: {USERS_FILE} (config says: {config_data.get('users_db', 'users/users.json')})")
 GROUPS_CONFIG_FILE = os.path.join(CURRENT_DIR, "users", "usgromana_groups.json")
 DEFAULT_GROUP_CONFIG_PATH = os.path.join(CURRENT_DIR, "users", "defaults", "default_group_config.json")
 DEFAULT_UI_DEFAULTS_PATH = os.path.join(CURRENT_DIR, "users", "defaults", "default_ui_defaults.json")
