@@ -131,11 +131,17 @@ def install_node_interceptor():
         return original_preview(self, images, filename_prefix, prompt, extra_pnginfo)
 
     def save_patch(self, images, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
-        self.output_dir = folder_paths.get_output_directory()
+        if self.type == "temp":
+            self.output_dir = folder_paths.get_temp_directory()
+        else:
+            self.output_dir = folder_paths.get_output_directory()
         return intercepted_wrapper(self, images, filename_prefix, prompt, extra_pnginfo, mode="save")
 
     def preview_patch(self, images, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
-        self.output_dir = folder_paths.get_output_directory()
+        if self.type == "temp":
+            self.output_dir = folder_paths.get_temp_directory()
+        else:
+            self.output_dir = folder_paths.get_output_directory()
         return intercepted_wrapper(self, images, filename_prefix, prompt, extra_pnginfo, mode="preview")
 
     nodes.SaveImage.save_images = save_patch
