@@ -14,3 +14,6 @@ __pycache__/
 
 # just a dumb experiment with ai while bored.
 tests/test_imports.py
+
+# don't let the vendor comfyui source get committed
+ComfyUI

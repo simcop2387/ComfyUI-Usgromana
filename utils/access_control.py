@@ -338,15 +338,15 @@ class AccessControl:
                 }
 
             prompt_id = prompt_stored[1]
+            prompt_user = self._get_prompt_user_id(item) or meta.get("user_id")
             self.__prompt_queue.history[prompt_id] = {
                 "prompt": prompt_stored,
                 "outputs": {},
                 "status": status_dict,
-                "user_id": meta.get("user_id"),
+                "user_id": prompt_user,
             }
             if history_result:
                 self.__prompt_queue.history[prompt_id].update(history_result)
-                prompt_user = meta.get("user_id")
                 if prompt_user:
                     try:
                         self.set_current_user_id(prompt_user, set_fallback=True)
