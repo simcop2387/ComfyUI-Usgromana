@@ -307,6 +307,9 @@ class AccessControl:
             self.__prompt_queue.currently_running[task_id] = entry
             self.__prompt_queue.task_counter += 1
             self.server.queue_updated()
+            prompt_user = self._get_prompt_user_id(entry)
+            if prompt_user:
+                self.set_current_user_id(prompt_user, set_fallback=True)
             return (entry, task_id)
 
     def _get_prompt_user_id(self, item):
