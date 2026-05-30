@@ -4,6 +4,7 @@ import nodes
 import numpy as np
 from PIL import Image
 import latent_preview
+import folder_paths
 
 from ...utils.media_paths import resolve_output_file_path
 from ...utils.sfw_intercept.nsfw_guard import (
@@ -130,9 +131,11 @@ def install_node_interceptor():
         return original_preview(self, images, filename_prefix, prompt, extra_pnginfo)
 
     def save_patch(self, images, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
+        self.output_dir = folder_paths.get_output_directory()
         return intercepted_wrapper(self, images, filename_prefix, prompt, extra_pnginfo, mode="save")
 
     def preview_patch(self, images, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
+        self.output_dir = folder_paths.get_output_directory()
         return intercepted_wrapper(self, images, filename_prefix, prompt, extra_pnginfo, mode="preview")
 
     nodes.SaveImage.save_images = save_patch
