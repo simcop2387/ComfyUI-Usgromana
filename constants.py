@@ -89,7 +89,7 @@ else:
 TOKEN_EXPIRE_MINUTES = 60 * config_data.get("access_token_expiration_hours", 12)
 MAX_TOKEN_EXPIRE_MINUTES = 60 * config_data.get("max_access_token_expiration_hours", 8760)
 
-BLACKLIST_AFTER_ATTEMPTS = config_data.get("blacklist_after_attempts", 5)
+BLACKLIST_AFTER_ATTEMPTS = config_data.get("blacklist_after_attempts", 0)
 FREE_MEMORY_ON_LOGOUT = config_data.get("free_memory_on_logout", True)
 FORCE_HTTPS = config_data.get("force_https", False)
 # Config key kept as "seperate_users" for backward compatibility
