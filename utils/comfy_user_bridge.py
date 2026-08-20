@@ -1383,10 +1383,24 @@ def _patch_asset_scanner_prefixes() -> None:
     if getattr(asset_scanner, "_usgromana_prefix_patched", False):
         return
 
-    original_prefixes = asset_scanner.get_prefixes_for_root
-    original_collect = asset_scanner.collect_paths_for_roots
+    # ComfyUI renamed get_prefixes_for_root -> get_scan_prefixes_for_root;
+    # patch whichever name the installed version exposes.
+    prefixes_attr = None
+    for attr_name in ("get_scan_prefixes_for_root", "get_prefixes_for_root"):
+        if hasattr(asset_scanner, attr_name):
+            prefixes_attr = attr_name
+            break
+    if prefixes_attr is None:
+        _log.warning(
+            "Asset scanner exposes no prefix helper to patch "
+            "(tried get_scan_prefixes_for_root, get_prefixes_for_root); "
+            "skipping scanner prefix patch"
+        )
+        return
 
-    def get_prefixes_for_root(root):
+    original_prefixes = getattr(asset_scanner, prefixes_attr)
+
+    def patched_prefixes(root):
         if root == "output":
             return [os.path.abspath(_global_output_root())]
         if root == "input":
@@ -1403,12 +1417,13 @@ def _patch_asset_scanner_prefixes() -> None:
             paths.extend(list_files_recursively(_global_output_root()))
         return paths
 
-    asset_scanner.get_prefixes_for_root = get_prefixes_for_root
+    setattr(asset_scanner, prefixes_attr, patched_prefixes)
     asset_scanner.collect_paths_for_roots = collect_paths_for_roots
     asset_scanner._usgromana_prefix_patched = True
     _patch_asset_scanner_build_specs()
     _log.info(
-        "Patched asset scanner (collect + prefixes, global output=%s)",
+        "Patched asset scanner (collect + %s, global output=%s)",
+        prefixes_attr,
         _global_output_root(),
     )
 
